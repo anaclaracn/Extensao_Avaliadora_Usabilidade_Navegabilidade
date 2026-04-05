@@ -1,0 +1,244 @@
+{
+  "info": {
+    "_postman_id": "tcc-ux-backend",
+    "name": "TCC-UX Backend",
+    "description": "Coleção de testes para o backend de coleta de interações do usuário",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": [""]
+        },
+        "description": "Verificar se o servidor está rodando"
+      }
+    },
+    {
+      "name": "Registrar Evento - Clique",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"click\",\n  \"tag\": \"button\",\n  \"text\": \"Clique aqui\",\n  \"element_id\": \"btn-submit\",\n  \"class\": \"btn btn-primary\",\n  \"timestamp\": \"{{$timestamp}}\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/events",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["events"]
+        },
+        "description": "Registrar um evento de clique"
+      }
+    },
+    {
+      "name": "Registrar Evento - Scroll",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"scroll\",\n  \"timestamp\": \"2024-04-01T10:31:00.000Z\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/events",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["events"]
+        },
+        "description": "Registrar um evento de scroll"
+      }
+    },
+    {
+      "name": "Registrar Evento - Hover",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"hover\",\n  \"tag\": \"img\",\n  \"element_id\": \"logo-image\",\n  \"timestamp\": \"2024-04-01T10:31:30.000Z\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/events",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["events"]
+        },
+        "description": "Registrar um evento de hover do mouse"
+      }
+    },
+    {
+      "name": "Registrar Evento - Input",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"input\",\n  \"tag\": \"input\",\n  \"element_id\": \"search-box\",\n  \"class\": \"form-control\",\n  \"timestamp\": \"2024-04-01T10:32:00.000Z\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/events",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["events"]
+        },
+        "description": "Registrar um evento de digitação em input"
+      }
+    },
+    {
+      "name": "Registrar Evento - Completo",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"dblclick\",\n  \"tag\": \"a\",\n  \"text\": \"Ir para página\",\n  \"element_id\": \"link-navigation\",\n  \"class\": \"nav-link active\",\n  \"timestamp\": \"2024-04-01T10:32:30.000Z\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/events",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["events"]
+        },
+        "description": "Registrar um evento com todos os campos preenchidos"
+      }
+    },
+    {
+      "name": "Obter Todos os Eventos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/events",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["events"]
+        },
+        "description": "Obter todos os eventos registrados (até 100)"
+      }
+    },
+    {
+      "name": "Obter Eventos com Limite",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/events?limit=50",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["events"],
+          "query": [
+            {
+              "key": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "description": "Obter eventos com limite de 50 resultados"
+      }
+    },
+    {
+      "name": "Obter Estatísticas",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/events/stats",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["events", "stats"]
+        },
+        "description": "Obter estatísticas dos eventos"
+      }
+    },
+    {
+      "name": "Erro - Faltam Campos",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"click\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/events",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["events"]
+        },
+        "description": "Teste de erro - faltam campos obrigatórios"
+      }
+    },
+    {
+      "name": "Erro - Timestamp Inválido",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"click\",\n  \"timestamp\": \"data-invalida\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/events",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["events"]
+        },
+        "description": "Teste de erro - timestamp em formato inválido"
+      }
+    }
+  ]
+}
