@@ -36,6 +36,9 @@ class EventController {
         element_id,
         class: cssClass,
         timestamp,
+        url,
+        x,
+        y,
       } = req.body;
 
       // Log para rastreamento
@@ -49,6 +52,9 @@ class EventController {
         element_id,
         class: cssClass,
         timestamp,
+        url,
+        x,
+        y,
       });
 
       // Retornar resposta de sucesso (status 201 = Created)

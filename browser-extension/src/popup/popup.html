@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Avaliador UX - Painel de Controle</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <!-- CABEÇALHO -->
+    <div class="header">
+      <div class="header-content">
+        <h1>📊 Avaliador UX</h1>
+        <p class="subtitle">Análise de Usabilidade & Navegabilidade</p>
+      </div>
+    </div>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <div class="container">
+      <!-- STATUS DA EXTENSÃO -->
+      <section class="status-section card">
+        <h2>Status da Extensão</h2>
+        <div class="status-group">
+          <div class="status-item">
+            <label for="toggle-tracking">Rastreamento Ativo</label>
+            <div class="toggle-switch">
+              <input
+                type="checkbox"
+                id="toggle-tracking"
+                class="toggle-input"
+                checked
+              />
+              <label for="toggle-tracking" class="toggle-label"></label>
+            </div>
+            <span id="status-indicator" class="status-indicator active"
+              >● Ativo</span
+            >
+          </div>
+        </div>
+      </section>
+
+      <!-- ESTATÍSTICAS -->
+      <section class="stats-section card">
+        <h2>📈 Estatísticas da Sessão</h2>
+        <div class="stats-grid">
+          <div class="stat-box">
+            <p class="stat-label">Eventos Coletados</p>
+            <p class="stat-value" id="events-count">0</p>
+          </div>
+          <div class="stat-box">
+            <p class="stat-label">Tempo de Sessão</p>
+            <p class="stat-value" id="session-time">0s</p>
+          </div>
+          <div class="stat-box">
+            <p class="stat-label">Taxa de Envio</p>
+            <p class="stat-value" id="send-rate">--</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONFIGURAÇÕES -->
+      <section class="config-section card">
+        <h2>⚙️ Configurações</h2>
+
+        <!-- Backend URL -->
+        <div class="config-item">
+          <label for="backend-url">URL do Backend</label>
+          <div class="input-group">
+            <input
+              type="text"
+              id="backend-url"
+              placeholder="http://localhost:3000"
+              value="http://localhost:3000"
+            />
+            <button id="save-backend-btn" class="btn-secondary">Salvar</button>
+          </div>
+          <small id="backend-status" class="status-message">✓ Conectado</small>
+        </div>
+
+        <!-- Batch Size -->
+        <div class="config-item">
+          <label for="batch-size">Tamanho do Lote</label>
+          <input type="number" id="batch-size" min="1" max="50" value="5" />
+          <small>Número de eventos para enviar em lote</small>
+        </div>
+
+        <!-- Batch Timeout -->
+        <div class="config-item">
+          <label for="batch-timeout">Timeout do Lote (ms)</label>
+          <input
+            type="number"
+            id="batch-timeout"
+            min="1000"
+            max="30000"
+            value="5000"
+            step="1000"
+          />
+          <small>Tempo máximo entre envios</small>
+        </div>
+
+        <!-- Flush Events Button -->
+        <div class="config-item">
+          <button id="flush-btn" class="btn-accent">
+            📤 Enviar Eventos Pendentes
+          </button>
+        </div>
+      </section>
+
+      <!-- AÇÕES -->
+      <section class="actions-section card">
+        <h2>🛠️ Ações Rápidas</h2>
+        <div class="button-group">
+          <button id="reset-stats-btn" class="btn-secondary">
+            ↻ Resetar Estatísticas
+          </button>
+          <button id="open-dashboard-btn" class="btn-secondary">
+            📊 Abrir Dashboard
+          </button>
+          <button id="settings-btn" class="btn-secondary">
+            ⚙️ Configurações Avançadas
+          </button>
+        </div>
+      </section>
+
+      <!-- EVENTOS EM TEMPO REAL -->
+      <section class="events-section card">
+        <h2>📡 Eventos em Tempo Real</h2>
+        <div id="events-log" class="events-log">
+          <p class="log-empty">Nenhum evento capturado ainda...</p>
+        </div>
+        <button id="clear-log-btn" class="btn-secondary btn-small">
+          Limpar Log
+        </button>
+      </section>
+
+      <!-- RODAPÉ -->
+      <footer class="footer">
+        <p>Extensão Avaliador UX v1.0.0</p>
+        <p>TCC - Interação Humano-Computador</p>
+      </footer>
+    </div>
+
+    <!-- SCRIPT -->
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -17,6 +17,9 @@ class EventService {
    * @param {string} eventData.element_id - ID do elemento HTML (opcional)
    * @param {string} eventData.class - Classe CSS do elemento (opcional)
    * @param {string} eventData.timestamp - Data/hora do evento (required)
+   * @param {string} eventData.url - URL da página onde ocorreu o evento (opcional)
+   * @param {number} eventData.x - Coordenada X da posição do clique (opcional)
+   * @param {number} eventData.y - Coordenada Y da posição do clique (opcional)
    *
    * @returns {Promise<Object>} - Objeto com os dados inseridos incluindo o ID gerado
    */
@@ -25,8 +28,8 @@ class EventService {
       // Query SQL para inserir o evento na tabela 'events'
       // Utiliza parâmetros ($1, $2, etc) para proteção contra SQL injection
       const query = `
-        INSERT INTO events (type, tag, text, element_id, class, timestamp)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO events (type, tag, text, element_id, class, timestamp, url, x, y)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *;
       `;
 
@@ -38,6 +41,9 @@ class EventService {
         eventData.element_id || null,
         eventData.class || null,
         eventData.timestamp,
+        eventData.url || null,
+        eventData.x || null,
+        eventData.y || null,
       ];
 
       // Executar a query
