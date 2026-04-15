@@ -2,145 +2,256 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Avaliador UX - Painel de Controle</title>
+    <title>Avaliador UX</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <!-- CABEÇALHO -->
-    <div class="header">
-      <div class="header-content">
-        <h1>📊 Avaliador UX</h1>
-        <p class="subtitle">Análise de Usabilidade & Navegabilidade</p>
+
+    <!-- ══ TELA 1: IDENTIFICAÇÃO ══════════════════════════════ -->
+    <div id="screen-identify" class="screen active">
+      <div class="header">
+        <div class="logo">◈</div>
+        <h1>Avaliador UX</h1>
+        <p class="subtitle">Interação Humano-Computador</p>
+      </div>
+      <div class="container">
+        <div class="card">
+          <p class="card-label">Quem é você nesta sessão?</p>
+          <div class="role-picker">
+            <button class="role-btn" id="role-participant">
+              <span class="role-icon">👤</span>
+              <span class="role-name">Participante</span>
+              <span class="role-desc">Vou realizar tarefas</span>
+            </button>
+            <button class="role-btn" id="role-admin">
+              <span class="role-icon">🔬</span>
+              <span class="role-name">Pesquisador</span>
+              <span class="role-desc">Vou configurar o teste</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="form-participant" class="card form-card hidden">
+          <p class="card-label">Seus dados (anônimos)</p>
+          <div class="field">
+            <label>Idade</label>
+            <input type="number" id="p-age" placeholder="Ex: 23" min="10" max="99" />
+          </div>
+          <div class="field">
+            <label>Gênero</label>
+            <div class="select-group" id="gender-group">
+              <button class="sel-btn" data-val="masculino">Masculino</button>
+              <button class="sel-btn" data-val="feminino">Feminino</button>
+              <button class="sel-btn" data-val="outro">Outro</button>
+              <button class="sel-btn" data-val="prefiro_nao_dizer">Prefiro não dizer</button>
+            </div>
+            <input type="hidden" id="p-gender" />
+          </div>
+          <div class="field">
+            <label>Escolaridade</label>
+            <div class="select-group" id="education-group">
+              <button class="sel-btn" data-val="fundamental">Fundamental</button>
+              <button class="sel-btn" data-val="medio">Médio</button>
+              <button class="sel-btn" data-val="superior">Superior</button>
+              <button class="sel-btn" data-val="pos_graduacao">Pós-graduação</button>
+            </div>
+            <input type="hidden" id="p-education" />
+          </div>
+          <div id="participant-error" class="error-msg hidden"></div>
+          <button id="btn-start-participant" class="btn-primary">Continuar →</button>
+        </div>
+
+        <div id="form-admin" class="card form-card hidden">
+          <p class="card-label">Acesso de pesquisador</p>
+          <div class="field">
+            <label>Senha</label>
+            <input type="password" id="admin-password" placeholder="••••••••" />
+          </div>
+          <div id="admin-error" class="error-msg hidden"></div>
+          <button id="btn-login-admin" class="btn-primary">Entrar →</button>
+        </div>
       </div>
     </div>
 
-    <!-- CONTEÚDO PRINCIPAL -->
-    <div class="container">
-      <!-- STATUS DA EXTENSÃO -->
-      <section class="status-section card">
-        <h2>Status da Extensão</h2>
-        <div class="status-group">
-          <div class="status-item">
-            <label for="toggle-tracking">Rastreamento Ativo</label>
-            <div class="toggle-switch">
-              <input
-                type="checkbox"
-                id="toggle-tracking"
-                class="toggle-input"
-                checked
-              />
-              <label for="toggle-tracking" class="toggle-label"></label>
-            </div>
-            <span id="status-indicator" class="status-indicator active"
-              >● Ativo</span
-            >
+    <!-- ══ TELA 2: ESCOLHA DE TESTE ═══════════════════════════ -->
+    <div id="screen-pick-test" class="screen hidden">
+      <div class="header">
+        <div class="logo">📋</div>
+        <h1>Escolha o teste</h1>
+        <p class="subtitle" id="pick-site-label">—</p>
+      </div>
+      <div class="container">
+        <div class="card">
+          <p class="card-label">Testes disponíveis neste site</p>
+          <div id="tests-list" class="tests-list">
+            <p class="empty-state">Carregando...</p>
           </div>
         </div>
-      </section>
-
-      <!-- ESTATÍSTICAS -->
-      <section class="stats-section card">
-        <h2>📈 Estatísticas da Sessão</h2>
-        <div class="stats-grid">
-          <div class="stat-box">
-            <p class="stat-label">Eventos Coletados</p>
-            <p class="stat-value" id="events-count">0</p>
-          </div>
-          <div class="stat-box">
-            <p class="stat-label">Tempo de Sessão</p>
-            <p class="stat-value" id="session-time">0s</p>
-          </div>
-          <div class="stat-box">
-            <p class="stat-label">Taxa de Envio</p>
-            <p class="stat-value" id="send-rate">--</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- CONFIGURAÇÕES -->
-      <section class="config-section card">
-        <h2>⚙️ Configurações</h2>
-
-        <!-- Backend URL -->
-        <div class="config-item">
-          <label for="backend-url">URL do Backend</label>
-          <div class="input-group">
-            <input
-              type="text"
-              id="backend-url"
-              placeholder="http://localhost:3000"
-              value="http://localhost:3000"
-            />
-            <button id="save-backend-btn" class="btn-secondary">Salvar</button>
-          </div>
-          <small id="backend-status" class="status-message">✓ Conectado</small>
-        </div>
-
-        <!-- Batch Size -->
-        <div class="config-item">
-          <label for="batch-size">Tamanho do Lote</label>
-          <input type="number" id="batch-size" min="1" max="50" value="5" />
-          <small>Número de eventos para enviar em lote</small>
-        </div>
-
-        <!-- Batch Timeout -->
-        <div class="config-item">
-          <label for="batch-timeout">Timeout do Lote (ms)</label>
-          <input
-            type="number"
-            id="batch-timeout"
-            min="1000"
-            max="30000"
-            value="5000"
-            step="1000"
-          />
-          <small>Tempo máximo entre envios</small>
-        </div>
-
-        <!-- Flush Events Button -->
-        <div class="config-item">
-          <button id="flush-btn" class="btn-accent">
-            📤 Enviar Eventos Pendentes
-          </button>
-        </div>
-      </section>
-
-      <!-- AÇÕES -->
-      <section class="actions-section card">
-        <h2>🛠️ Ações Rápidas</h2>
-        <div class="button-group">
-          <button id="reset-stats-btn" class="btn-secondary">
-            ↻ Resetar Estatísticas
-          </button>
-          <button id="open-dashboard-btn" class="btn-secondary">
-            📊 Abrir Dashboard
-          </button>
-          <button id="settings-btn" class="btn-secondary">
-            ⚙️ Configurações Avançadas
-          </button>
-        </div>
-      </section>
-
-      <!-- EVENTOS EM TEMPO REAL -->
-      <section class="events-section card">
-        <h2>📡 Eventos em Tempo Real</h2>
-        <div id="events-log" class="events-log">
-          <p class="log-empty">Nenhum evento capturado ainda...</p>
-        </div>
-        <button id="clear-log-btn" class="btn-secondary btn-small">
-          Limpar Log
-        </button>
-      </section>
-
-      <!-- RODAPÉ -->
-      <footer class="footer">
-        <p>Extensão Avaliador UX v1.0.0</p>
-        <p>TCC - Interação Humano-Computador</p>
-      </footer>
+        <button id="btn-back-from-pick" class="btn-ghost">← Voltar</button>
+      </div>
     </div>
 
-    <!-- SCRIPT -->
+    <!-- ══ TELA 3: SESSÃO — TAREFAS ═══════════════════════════ -->
+    <div id="screen-session" class="screen hidden">
+      <div class="header header-session">
+        <div class="pulse-dot"></div>
+        <h1 id="session-test-name">Teste</h1>
+        <p class="subtitle" id="session-site-label">—</p>
+      </div>
+      <div class="container">
+
+        <!-- Stats rápidas -->
+        <div class="card stats-card">
+          <div class="stat-row">
+            <div class="stat">
+              <span class="stat-val" id="s-events">0</span>
+              <span class="stat-lbl">eventos</span>
+            </div>
+            <div class="stat">
+              <span class="stat-val" id="s-time">0s</span>
+              <span class="stat-lbl">sessão</span>
+            </div>
+            <div class="stat">
+              <span class="stat-val" id="s-done">0</span>
+              <span class="stat-lbl">tarefas</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tarefa ativa (timer) -->
+        <div id="active-task-card" class="card active-task-card hidden">
+          <p class="card-label">⏱ Tarefa em andamento</p>
+          <p id="active-task-desc" class="active-task-desc"></p>
+          <div class="active-task-timer" id="active-task-timer">00:00</div>
+          <div class="active-task-clicks">
+            <span id="active-task-clicks">0</span> clicks registrados
+          </div>
+          <div class="active-task-actions">
+            <button id="btn-task-done" class="btn-success">✓ Concluí</button>
+            <button id="btn-task-skip" class="btn-skip">✗ Não consegui</button>
+          </div>
+        </div>
+
+        <!-- Lista de tarefas -->
+        <div class="card">
+          <p class="card-label">Tarefas do teste</p>
+          <div id="session-tasks-list" class="tasks-list"></div>
+        </div>
+
+        <button id="btn-end-session" class="btn-danger">Encerrar sessão</button>
+      </div>
+    </div>
+
+    <!-- ══ TELA 4: MÉTRICAS FINAIS ════════════════════════════ -->
+    <div id="screen-results" class="screen hidden">
+      <div class="header header-results">
+        <div class="logo">📊</div>
+        <h1>Resultado da sessão</h1>
+        <p class="subtitle" id="results-test-name">—</p>
+      </div>
+      <div class="container">
+
+        <!-- Resumo geral -->
+        <div class="card">
+          <p class="card-label">Resumo geral</p>
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <span class="metric-val" id="m-success-rate">—</span>
+              <span class="metric-lbl">taxa de sucesso</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-val" id="m-total-time">—</span>
+              <span class="metric-lbl">tempo total</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-val" id="m-total-clicks">—</span>
+              <span class="metric-lbl">clicks totais</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-val" id="m-avg-time">—</span>
+              <span class="metric-lbl">tempo médio/tarefa</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-val" id="m-avg-clicks">—</span>
+              <span class="metric-lbl">clicks médios/tarefa</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-val" id="m-events">—</span>
+              <span class="metric-lbl">eventos totais</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detalhe por tarefa -->
+        <div class="card">
+          <p class="card-label">Detalhe por tarefa</p>
+          <div id="tasks-breakdown" class="tasks-breakdown"></div>
+        </div>
+
+        <button id="btn-new-session" class="btn-primary">Nova sessão</button>
+      </div>
+    </div>
+
+    <!-- ══ TELA 5: PAINEL PESQUISADOR ════════════════════════ -->
+    <div id="screen-admin" class="screen hidden">
+      <div class="header header-admin">
+        <div class="logo">🔬</div>
+        <h1>Painel do Pesquisador</h1>
+        <p class="subtitle" id="admin-site-label">—</p>
+      </div>
+      <div class="container">
+
+        <div class="card">
+          <p class="card-label">Criar teste de usabilidade</p>
+          <div class="field">
+            <label>Nome do teste</label>
+            <input type="text" id="test-name" placeholder="Ex: Avaliação de checkout" />
+          </div>
+          <button id="btn-create-test" class="btn-secondary">+ Criar teste</button>
+          <div id="test-feedback" class="feedback hidden"></div>
+        </div>
+
+        <div id="tasks-section" class="card hidden">
+          <p class="card-label">Tarefas <span id="tasks-test-badge" class="badge"></span></p>
+          <div id="tasks-list" class="tasks-list"></div>
+          <div class="field" style="margin-top:10px">
+            <label>Nova tarefa</label>
+            <input type="text" id="task-description" placeholder="Ex: Encontre o botão de compra" />
+          </div>
+          <button id="btn-add-task" class="btn-secondary">+ Adicionar tarefa</button>
+          <div id="task-feedback" class="feedback hidden"></div>
+        </div>
+
+        <div class="card">
+          <p class="card-label">Testes existentes</p>
+          <div id="admin-tests-list" class="tests-list">
+            <p class="empty-state">Carregando...</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <p class="card-label">Configurações</p>
+          <div class="field">
+            <label>URL do Backend</label>
+            <div class="input-row">
+              <input type="text" id="admin-backend-url" placeholder="http://localhost:3000" />
+              <button id="btn-save-url" class="btn-icon">✓</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Senha de pesquisador</label>
+            <div class="input-row">
+              <input type="password" id="admin-new-password" placeholder="Nova senha" />
+              <button id="btn-save-password" class="btn-icon">✓</button>
+            </div>
+          </div>
+        </div>
+
+        <button id="btn-logout-admin" class="btn-ghost">← Voltar</button>
+      </div>
+    </div>
+
     <script src="popup.js"></script>
   </body>
 </html>

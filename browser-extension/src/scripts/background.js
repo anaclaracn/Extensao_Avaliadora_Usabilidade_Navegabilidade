@@ -1,281 +1,266 @@
 /**
- * ============================================
- * BACKGROUND.JS
- * ============================================
+ * BACKGROUND.JS v3 — Service Worker
  *
- * Service Worker da extensão
- * Gerencia configurações, comunicação com conteúdo
- * e persistência de dados
+ * Novidades:
+ *  - Gerencia timers de tarefas em background (popup pode fechar)
+ *  - Rastreia clicks por tarefa ativa
+ *  - Expõe getTaskState para o popup consultar
  */
 
-// ============================================
-// ESTADO GLOBAL DA EXTENSÃO
-// ============================================
-
-const extensionState = {
-  isEnabled: true,
-  backendUrl: "http://localhost:3000",
-  apiEndpoint: "/events",
-  eventsCollected: 0,
+// ── Estado global ────────────────────────────────────────────
+const state = {
+  isEnabled:        true,
+  backendUrl:       'http://localhost:3000',
+  eventsCollected:  0,
   sessionStartTime: Date.now(),
+  userId:           null,
+  sessionId:        null,
+  sessionCreating:  false,
+
+  // Tarefa em andamento
+  activeTask:       null,   // { id, description, startedAt (ms), clicks }
+  completedTasks:   [],     // [{ taskId, description, startedAt, finishedAt, clicks, success }]
 };
 
-// ============================================
-// INICIALIZAÇÃO
-// ============================================
-
-/**
- * Ao instalar a extensão pela primeira vez
- */
-chrome.runtime.onInstalled.addListener((details) => {
-  if (details.reason === "install") {
-    console.log("🎉 Extensão Avaliador UX instalada!");
-
-    // Carregar configurações padrão
-    chrome.storage.sync.set(extensionState, () => {
-      console.log("✅ Configurações padrão salvas");
-    });
-
-    // Nota: Página de boas-vindas removida (não é necessária)
-    // Use o popup da extensão clicando no ícone
+// ── Boot ──────────────────────────────────────────────────────
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+  if (reason === 'install') {
+    chrome.storage.sync.set({ isEnabled: true, backendUrl: 'http://localhost:3000' });
   }
 });
 
-// ============================================
-// LISTENERS DE MENSAGEM
-// ============================================
+chrome.storage.sync.get(null, (data) => { Object.assign(state, data); });
 
-/**
- * Ouvir mensagens do popup e content-scripts
- */
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log("📨 Mensagem recebida no background:", request, "de:", sender);
+// ── Messages ──────────────────────────────────────────────────
+chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
+  switch (req.action) {
 
-  switch (request.action) {
-    case "getExtensionStatus":
-      handleGetStatus(sendResponse);
+    case 'sessionCreated':
+      state.sessionId        = req.sessionId;
+      state.userId           = req.userId;
+      state.eventsCollected  = 0;
+      state.sessionStartTime = Date.now();
+      state.completedTasks   = [];
+      state.activeTask       = null;
+      sendResponse({ success: true });
       break;
 
-    case "toggleExtension":
-      handleToggleExtension(request.enabled, sendResponse);
+    case 'getExtensionStatus':
+      chrome.storage.sync.get(null, (data) => {
+        sendResponse({ success: true, status: { ...state, ...data } });
+      });
+      return true;
+
+    case 'getEventStats':
+      sendResponse({
+        success: true,
+        stats: {
+          eventsCollected: state.eventsCollected,
+          sessionDuration: Math.floor((Date.now() - state.sessionStartTime) / 1000),
+          sessionId:       state.sessionId,
+          activeTask:      state.activeTask,
+          completedTasks:  state.completedTasks,
+        },
+      });
       break;
 
-    case "updateBackendUrl":
-      handleUpdateBackendUrl(request.url, sendResponse);
+    // Participante clicou em "Começar tarefa"
+    case 'startTask':
+      state.activeTask = {
+        id:          req.taskId,
+        description: req.description,
+        startedAt:   Date.now(),
+        clicks:      0,
+      };
+      console.log('▶️  Tarefa iniciada:', req.description);
+      sendResponse({ success: true });
       break;
 
-    case "getEventStats":
-      handleGetEventStats(sendResponse);
+    // Participante clicou em "Concluir tarefa"
+    case 'completeTask':
+      handleCompleteTask(req.success ?? true, sendResponse);
+      return true;
+
+    // Participante abandonou tarefa sem concluir
+    case 'skipTask':
+      handleCompleteTask(false, sendResponse);
+      return true;
+
+    case 'getCompletedTasks':
+      sendResponse({ success: true, tasks: state.completedTasks });
       break;
 
-    case "resetStats":
-      handleResetStats(sendResponse);
+    case 'toggleExtension':
+      state.isEnabled = req.enabled;
+      if (!req.enabled) resetSession();
+      chrome.storage.sync.set({ isEnabled: req.enabled });
+      notifyTabs({ action: 'toggleTracking', enabled: req.enabled });
+      sendResponse({ success: true });
       break;
 
-    case "sendEventToBackend":
-      handleSendEventToBackend(request.event, sendResponse);
-      return true; // Indica que é chamada assíncrona
+    case 'updateBackendUrl':
+      state.backendUrl = req.url;
+      resetSession();
+      chrome.storage.sync.set({ backendUrl: req.url });
+      notifyTabs({ action: 'updateConfig', config: { backendUrl: req.url } });
+      sendResponse({ success: true });
       break;
 
-    case "eventSent":
-      // Contar evento enviado
-      extensionState.eventsCollected++;
-      console.log(`📊 Total de eventos: ${extensionState.eventsCollected}`);
+    case 'resetStats':
+      resetSession();
+      sendResponse({ success: true });
       break;
+
+    case 'sendEventToBackend':
+      handleSendEvent(
+        req.event,
+        sender?.tab?.url || req.event?.url || 'http://desconhecido',
+        sendResponse
+      );
+      return true;
 
     default:
-      sendResponse({ error: "Ação desconhecida no background" });
+      sendResponse({ error: 'Ação desconhecida' });
   }
-
-  // Retornar true para indicar que a resposta é assíncrona
   return true;
 });
 
-// ============================================
-// MANIPULADORES DE REQUISIÇÕES
-// ============================================
+// ── Completar tarefa ──────────────────────────────────────────
+async function handleCompleteTask(success, sendResponse) {
+  if (!state.activeTask) {
+    sendResponse({ success: false, error: 'Nenhuma tarefa ativa' });
+    return;
+  }
 
-/**
- * Obter status da extensão
- */
-function handleGetStatus(sendResponse) {
-  chrome.storage.sync.get(null, (data) => {
-    const status = {
-      ...extensionState,
-      ...data,
-    };
-    sendResponse({
-      success: true,
-      status: status,
-    });
-  });
-}
+  const task = state.activeTask;
+  const finishedAt = Date.now();
 
-/**
- * Alternar habilitação da extensão
- */
-function handleToggleExtension(enabled, sendResponse) {
-  extensionState.isEnabled = enabled;
-
-  chrome.storage.sync.set({ isEnabled: enabled }, () => {
-    // Notificar todos os content-scripts
-    chrome.tabs.query({}, (tabs) => {
-      tabs.forEach((tab) => {
-        chrome.tabs.sendMessage(
-          tab.id,
-          {
-            action: "toggleTracking",
-            enabled: enabled,
-          },
-          (response) => {
-            // Ignorar erros de abas que não têm content-script
-            if (chrome.runtime.lastError) {
-              // Silencioso
-            }
-          },
-        );
-      });
-    });
-
-    console.log(`🔄 Extensão ${enabled ? "ativada" : "desativada"}`);
-    sendResponse({
-      success: true,
-      enabled: enabled,
-    });
-  });
-}
-
-/**
- * Atualizar URL do backend
- */
-function handleUpdateBackendUrl(url, sendResponse) {
-  extensionState.backendUrl = url;
-
-  chrome.storage.sync.set({ backendUrl: url }, () => {
-    // Notificar todos os content-scripts
-    chrome.tabs.query({}, (tabs) => {
-      tabs.forEach((tab) => {
-        chrome.tabs.sendMessage(
-          tab.id,
-          {
-            action: "updateConfig",
-            config: { backendUrl: url },
-          },
-          (response) => {
-            if (chrome.runtime.lastError) {
-              // Silencioso
-            }
-          },
-        );
-      });
-    });
-
-    console.log(`🔗 URL do backend atualizada: ${url}`);
-    sendResponse({
-      success: true,
-      backendUrl: url,
-    });
-  });
-}
-
-/**
- * Obter estatísticas de eventos
- */
-function handleGetEventStats(sendResponse) {
-  const stats = {
-    eventsCollected: extensionState.eventsCollected,
-    sessionDuration: Math.floor(
-      (Date.now() - extensionState.sessionStartTime) / 1000,
-    ),
-    uptime: `${Math.floor(extensionState.sessionStartTime / 1000)}s`,
+  const result = {
+    taskId:      task.id,
+    description: task.description,
+    startedAt:   task.startedAt,
+    finishedAt,
+    durationMs:  finishedAt - task.startedAt,
+    clicks:      task.clicks,
+    success,
   };
 
-  sendResponse({
-    success: true,
-    stats: stats,
-  });
-}
+  state.completedTasks.push(result);
+  state.activeTask = null;
 
-/**
- * Resetar estatísticas
- */
-function handleResetStats(sendResponse) {
-  extensionState.eventsCollected = 0;
-  extensionState.sessionStartTime = Date.now();
-
-  sendResponse({
-    success: true,
-    message: "Estatísticas resetadas",
-  });
-}
-
-/**
- * Enviar evento para o backend
- * (Chamado pelo content-script via chrome.runtime.sendMessage)
- */
-async function handleSendEventToBackend(event, sendResponse) {
+  // Salvar no backend
   try {
-    const url = extensionState.backendUrl || "http://localhost:3000";
-    const endpoint = extensionState.apiEndpoint || "/events";
-    const fullUrl = `${url}${endpoint}`;
-
-    console.log(`🔗 Enviando para: ${fullUrl}`, event);
-
-    const response = await fetch(fullUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(event),
+    await fetch(`${state.backendUrl}/task-results`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task_id:     result.taskId,
+        session_id:  state.sessionId,
+        started_at:  new Date(result.startedAt).toISOString(),
+        finished_at: new Date(result.finishedAt).toISOString(),
+        success:     result.success,
+        clicks:      result.clicks,
+      }),
     });
+    console.log('✅ task_result salvo');
+  } catch (err) {
+    console.error('❌ Erro ao salvar task_result:', err.message);
+  }
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
+  sendResponse({ success: true, result });
+}
 
-    const data = await response.json();
-    extensionState.eventsCollected++;
+// ── Enviar evento ─────────────────────────────────────────────
+async function handleSendEvent(event, siteUrl, sendResponse) {
+  if (!state.isEnabled) {
+    sendResponse({ success: false, error: 'Extensão desabilitada' });
+    return;
+  }
 
-    sendResponse({
-      success: true,
-      data: data,
+  if (!state.sessionId) {
+    const sid = await ensureSession(siteUrl);
+    if (!sid) { sendResponse({ success: false, error: 'Sem sessão' }); return; }
+  }
+
+  // Contar click na tarefa ativa
+  if (state.activeTask && event.type === 'click') {
+    state.activeTask.clicks++;
+  }
+
+  const payload = { ...event, session_id: state.sessionId };
+
+  try {
+    const res  = await fetch(`${state.backendUrl}/events`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
     });
-  } catch (error) {
-    console.error("❌ Erro ao enviar para backend:", error);
-    sendResponse({
-      success: false,
-      error: error.message,
-    });
+    const data = await res.json();
+
+    if (!res.ok) { sendResponse({ success: false, error: data.error }); return; }
+
+    state.eventsCollected++;
+    chrome.runtime.sendMessage({ action: 'eventLogged', event }).catch(() => {});
+    sendResponse({ success: true, data });
+
+  } catch (err) {
+    sendResponse({ success: false, error: err.message });
   }
 }
 
-// ============================================
-// BADGE DA EXTENSÃO (ícone com números)
-// ============================================
-
-/**
- * Atualizar badge com número de eventos
- */
-setInterval(() => {
-  if (extensionState.eventsCollected > 0) {
-    chrome.action.setBadgeText({
-      text: extensionState.eventsCollected.toString(),
-    });
-
-    chrome.action.setBadgeBackgroundColor({
-      color: "#4CAF50",
-    });
+// ── Fallback session ──────────────────────────────────────────
+async function ensureSession(siteUrl) {
+  if (state.sessionId) return state.sessionId;
+  if (state.sessionCreating) {
+    await new Promise(r => setTimeout(r, 1200));
+    return state.sessionId;
   }
-}, 1000);
+  state.sessionCreating = true;
+  try {
+    const uRes  = await fetch(`${state.backendUrl}/users`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ age: 0, gender: 'nao_informado', education_level: 'nao_informado' }),
+    });
+    const uData = await uRes.json();
+    state.userId = uData.data.id;
 
-// ============================================
-// INICIALIZAÇÃO
-// ============================================
+    const sRes  = await fetch(`${state.backendUrl}/sessions`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: state.userId, site_url: siteUrl }),
+    });
+    const sData = await sRes.json();
+    state.sessionId        = sData.session_id;
+    state.sessionStartTime = Date.now();
+    return state.sessionId;
+  } catch (err) {
+    console.error('❌ Fallback session falhou:', err.message);
+    return null;
+  } finally {
+    state.sessionCreating = false;
+  }
+}
 
-console.log("🔧 Background script carregado - Extensão pronta!");
+function resetSession() {
+  state.sessionId        = null;
+  state.userId           = null;
+  state.eventsCollected  = 0;
+  state.sessionStartTime = Date.now();
+  state.activeTask       = null;
+  state.completedTasks   = [];
+}
 
-// Carregar configurações salvas
-chrome.storage.sync.get(null, (data) => {
-  Object.assign(extensionState, data);
-  console.log("⚙️  Configurações carregadas:", extensionState);
-});
+function notifyTabs(msg) {
+  chrome.tabs.query({}, tabs => {
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, msg, () => { chrome.runtime.lastError; });
+    });
+  });
+}
+
+// ── Badge ─────────────────────────────────────────────────────
+setInterval(() => {
+  chrome.action.setBadgeText({ text: state.eventsCollected > 0 ? String(state.eventsCollected) : '' });
+  chrome.action.setBadgeBackgroundColor({ color: state.activeTask ? '#f59e0b' : '#0d9488' });
+}, 1500);
+
+console.log('🔧 Background v3 carregado!');
