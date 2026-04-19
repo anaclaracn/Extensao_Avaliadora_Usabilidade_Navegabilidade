@@ -1,3 +1,41 @@
+/* ── Side Panel: ocupa toda a altura disponível ─────────────── */
+html, body {
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+.screen {
+  flex: 1;
+  display: none;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.screen.active {
+  display: flex;
+}
+
+.container {
+  flex: 1;
+  max-height: none !important;
+  overflow-y: auto;
+  padding: 14px;
+}
+
+/* Stats card um pouco maior no side panel */
+.stat-val { font-size: 28px !important; }
+
+/* Métricas em 2 colunas no side panel */
+.metrics-grid {
+  grid-template-columns: 1fr 1fr !important;
+}
+
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap');
 
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -25,7 +63,7 @@
 }
 
 body {
-  width: 380px;
+  
   font-family: var(--sans);
   background: var(--bg);
   color: var(--text);

@@ -1,13 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Avaliador UX - Usabilidade & Navegabilidade",
-  "version": "1.0.0",
-  "description": "Extensão para análise de usabilidade e navegabilidade em interfaces web. Coleta interações do usuário para avaliação em tempo real.",
-  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "version": "2.0.0",
+  "description": "Extensão para análise de usabilidade e navegabilidade em interfaces web.",
+  "permissions": ["activeTab", "scripting", "storage", "tabs", "sidePanel"],
   "host_permissions": ["<all_urls>"],
   "action": {
-    "default_popup": "src/popup/popup.html",
-    "default_title": "Avaliador UX"
+    "default_title": "Avaliador UX — Abrir painel"
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel/sidepanel.html"
   },
   "background": {
     "service_worker": "src/scripts/background.js"

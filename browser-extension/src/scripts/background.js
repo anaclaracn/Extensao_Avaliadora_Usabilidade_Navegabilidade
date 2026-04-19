@@ -264,3 +264,11 @@ setInterval(() => {
 }, 1500);
 
 console.log('🔧 Background v3 carregado!');
+
+// ── Abrir side panel ao clicar no ícone da extensão ──────────
+chrome.action.onClicked.addListener((tab) => {
+  chrome.sidePanel.open({ tabId: tab.id });
+});
+
+// Habilitar side panel para todas as abas automaticamente
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});

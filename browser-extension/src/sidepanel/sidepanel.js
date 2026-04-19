@@ -1,16 +1,19 @@
 /**
- * POPUP.JS v3
+ * SIDEPANEL.JS v3
  *
- * Telas:
- *   identify   → pick-test → session → results
- *                          → admin
+ * Diferença chave em relação ao popup.js:
+ *  - O side panel persiste enquanto a aba estiver aberta
+ *  - Estado é salvo em chrome.storage.session para sobreviver
+ *    a eventuais reloads do service worker
+ *  - Ao reabrir o painel, restaura exatamente a tela onde estava
  */
 
 // ── Constantes ────────────────────────────────────────────────
-const ADMIN_PWD_KEY  = 'adminPassword';
-const DEFAULT_PWD    = 'admin123';
-const BACKEND_KEY    = 'backendUrl';
+const ADMIN_PWD_KEY   = 'adminPassword';
+const DEFAULT_PWD     = 'admin123';
+const BACKEND_KEY     = 'backendUrl';
 const DEFAULT_BACKEND = 'http://localhost:3000';
+const SESSION_KEY     = 'uxSessionState';   // chrome.storage.session
 
 // ── Estado ────────────────────────────────────────────────────
 const S = {
@@ -21,11 +24,12 @@ const S = {
   sessionStart:   null,
   activeTestId:   null,
   activeTestName: null,
-  tasks:          [],          // tarefas do teste escolhido
-  activeTaskIdx:  null,        // índice da tarefa em andamento
+  tasks:          [],
+  activeTaskIdx:  null,
   taskTimerMs:    0,
   taskTimerInt:   null,
   statsInt:       null,
+  currentScreen:  'identify',   // tela atual — salvo para restaurar
 };
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -42,12 +46,14 @@ function showScreen(name) {
   const el = $(`screen-${name}`);
   el.classList.remove('hidden');
   el.classList.add('active');
+  S.currentScreen = name;
+  saveSessionState();  // persistir tela atual
 }
 
 function showFeedback(id, msg, err = false) {
   const el = $(id);
   el.textContent = msg;
-  el.className = 'feedback' + (err ? ' error' : '');
+  el.className   = 'feedback' + (err ? ' error' : '');
   el.classList.remove('hidden');
   setTimeout(() => el.classList.add('hidden'), 3000);
 }
@@ -61,30 +67,84 @@ function fmtMs(ms) {
   return `${String(m).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
 }
 function fmtSec(s) {
-  if (s < 60)  return `${s}s`;
+  if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
   return `${m}m ${s % 60}s`;
 }
 
+// ── Persistência de estado ────────────────────────────────────
+// Salva os dados essenciais na storage.session (dura enquanto
+// o browser estiver aberto, sem limite de 8KB do sync)
+function saveSessionState() {
+  const toSave = {
+    userId:        S.userId,
+    sessionId:     S.sessionId,
+    sessionStart:  S.sessionStart,
+    activeTestId:  S.activeTestId,
+    activeTestName:S.activeTestName,
+    tasks:         S.tasks,
+    activeTaskIdx: S.activeTaskIdx,
+    taskTimerMs:   S.taskTimerMs,
+    currentScreen: S.currentScreen,
+  };
+  chrome.storage.session.set({ [SESSION_KEY]: toSave });
+}
+
+async function loadSessionState() {
+  return new Promise(resolve => {
+    chrome.storage.session.get([SESSION_KEY], (res) => {
+      resolve(res[SESSION_KEY] || null);
+    });
+  });
+}
+
+function clearSessionState() {
+  chrome.storage.session.remove([SESSION_KEY]);
+}
+
 // ── Boot ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  // Carregar configs do usuário
   const stored = await getStorage([BACKEND_KEY]);
   S.backendUrl = stored[BACKEND_KEY] || DEFAULT_BACKEND;
 
+  // URL da aba ativa
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.url) S.currentSiteUrl = tab.url;
 
-  // Se já há sessão ativa, vai direto para sessão
-  chrome.runtime.sendMessage({ action: 'getExtensionStatus' }, (res) => {
-    if (res?.status?.sessionId) {
-      S.sessionId    = res.status.sessionId;
-      S.userId       = res.status.userId;
-      S.sessionStart = res.status.sessionStartTime;
-      // Tentar restaurar teste ativo se havia um
-      if (S.activeTestId) enterSession();
-      else                 enterPickTest();  // deixa escolher de novo
+  // Tentar restaurar sessão anterior
+  const saved = await loadSessionState();
+
+  if (saved?.sessionId) {
+    // Restaurar estado
+    Object.assign(S, saved);
+
+    // Verificar se o background ainda conhece essa sessão
+    chrome.runtime.sendMessage({ action: 'getExtensionStatus' }, (res) => {
+      if (!res?.status?.sessionId) {
+        // Background reiniciou (service worker dormiu) — re-registrar sessão
+        chrome.runtime.sendMessage({
+          action:    'sessionCreated',
+          sessionId: S.sessionId,
+          userId:    S.userId,
+        });
+      }
+    });
+
+    // Restaurar tela
+    if (saved.currentScreen === 'session') {
+      enterSession(true);  // true = restaurando
+    } else if (saved.currentScreen === 'results') {
+      showResults();
+    } else if (saved.currentScreen === 'pick-test') {
+      enterPickTest();
+    } else {
+      showScreen('identify');
+      resetIdentifyUI();
     }
-  });
+  } else {
+    showScreen('identify');
+  }
 
   bindIdentify();
   bindPickTest();
@@ -92,8 +152,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindResults();
   bindAdmin();
 
+  // Escutar eventos do content-script via background
   chrome.runtime.onMessage.addListener((req) => {
     if (req.action === 'eventLogged') updateSessionStats();
+  });
+
+  // Atualizar URL se a aba mudar (ex: navegação dentro do site)
+  chrome.tabs.onActivated.addListener(async (info) => {
+    const t = await chrome.tabs.get(info.tabId);
+    if (t?.url) S.currentSiteUrl = t.url;
   });
 });
 
@@ -116,7 +183,12 @@ function bindIdentify() {
 
   $('btn-start-participant').addEventListener('click', startParticipant);
   $('btn-login-admin').addEventListener('click', loginAdmin);
-  $('admin-password').addEventListener('keydown', e => { if (e.key==='Enter') loginAdmin(); });
+  $('admin-password').addEventListener('keydown', e => { if (e.key === 'Enter') loginAdmin(); });
+}
+
+function resetIdentifyUI() {
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
+  hide('form-participant'); hide('form-admin');
 }
 
 function bindPills(groupId, hiddenId) {
@@ -131,9 +203,9 @@ function bindPills(groupId, hiddenId) {
 
 async function startParticipant() {
   hideErr('participant-error');
-  const age  = parseInt($('p-age').value);
-  const gen  = $('p-gender').value;
-  const edu  = $('p-education').value;
+  const age = parseInt($('p-age').value);
+  const gen = $('p-gender').value;
+  const edu = $('p-education').value;
 
   if (!age || age < 10) return showErr('participant-error', 'Informe uma idade válida.');
   if (!gen)             return showErr('participant-error', 'Selecione o gênero.');
@@ -154,6 +226,7 @@ async function startParticipant() {
     S.sessionStart = Date.now();
 
     chrome.runtime.sendMessage({ action: 'sessionCreated', sessionId: S.sessionId, userId: S.userId });
+    saveSessionState();
     enterPickTest();
   } catch (err) {
     showErr('participant-error', `Erro: ${err.message}`);
@@ -177,8 +250,7 @@ async function loginAdmin() {
 function bindPickTest() {
   $('btn-back-from-pick').addEventListener('click', () => {
     showScreen('identify');
-    document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
-    hide('form-participant'); hide('form-admin');
+    resetIdentifyUI();
   });
 }
 
@@ -192,7 +264,6 @@ async function enterPickTest() {
   list.innerHTML = '<p class="empty-state">Carregando testes...</p>';
 
   try {
-    // Filtra pelos testes do site atual usando site_url
     const siteParam = encodeURIComponent(S.currentSiteUrl || '');
     const res   = await api('GET', `/tests?site_url=${siteParam}`);
     const tests = res.data || [];
@@ -228,10 +299,11 @@ async function selectTest(test) {
 
   try {
     const res = await api('GET', `/tasks?test_id=${test.id}`);
-    S.tasks = res.data || [];
+    S.tasks = (res.data || []).map(t => ({ ...t, _done: false, _success: false }));
   } catch(_) { S.tasks = []; }
 
-  enterSession();
+  saveSessionState();
+  enterSession(false);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -243,15 +315,42 @@ function bindSession() {
   $('btn-end-session').addEventListener('click', endSession);
 }
 
-function enterSession() {
+function enterSession(restoring = false) {
   showScreen('session');
+
   let host = '—';
   try { host = new URL(S.currentSiteUrl).hostname; } catch(_) {}
   $('session-site-label').textContent = host;
   $('session-test-name').textContent  = S.activeTestName || 'Teste';
 
+  // Se estava no meio de uma tarefa, restaurar o timer
+  if (restoring && S.activeTaskIdx !== null) {
+    const task = S.tasks[S.activeTaskIdx];
+    if (task && !task._done) {
+      $('active-task-desc').textContent = task.description;
+      show('active-task-card');
+      // Timer: já contamos o tempo salvo, continuar daqui
+      resumeTaskTimer();
+    }
+  }
+
   renderSessionTasks();
   startStatsInterval();
+}
+
+function resumeTaskTimer() {
+  clearInterval(S.taskTimerInt);
+  S.taskTimerInt = setInterval(() => {
+    S.taskTimerMs += 1000;
+    $('active-task-timer').textContent = fmtMs(S.taskTimerMs);
+    saveSessionState();  // persistir tempo acumulado
+
+    chrome.runtime.sendMessage({ action: 'getEventStats' }, (res) => {
+      if (res?.stats?.activeTask) {
+        $('active-task-clicks').textContent = res.stats.activeTask.clicks || 0;
+      }
+    });
+  }, 1000);
 }
 
 function renderSessionTasks() {
@@ -269,21 +368,22 @@ function renderSessionTasks() {
     el.id = `stask-${t.id}`;
 
     const isActive  = S.activeTaskIdx === i;
-    const completed = S.tasks[i]._done;
+    const completed = t._done;
 
     if (isActive)   el.classList.add('task-active');
-    if (completed)  el.classList.add(S.tasks[i]._success ? 'task-success' : 'task-fail');
+    if (completed)  el.classList.add(t._success ? 'task-success' : 'task-fail');
 
     const icon = completed
-      ? (S.tasks[i]._success ? '✅' : '❌')
+      ? (t._success ? '✅' : '❌')
       : (isActive ? '⏱' : '○');
 
-    const btn = (!completed && !isActive)
+    const canStart = !completed && !isActive && S.activeTaskIdx === null;
+    const btn = canStart
       ? `<button class="btn-start-task" data-idx="${i}">Começar</button>`
       : '';
 
     el.innerHTML = `
-      <span class="task-num">${i+1}</span>
+      <span class="task-num">${i + 1}</span>
       <span class="task-text">${t.description}</span>
       <span class="task-status-icon">${icon}</span>
       ${btn}
@@ -291,73 +391,50 @@ function renderSessionTasks() {
     list.appendChild(el);
   });
 
-  // Bind botões Começar
   list.querySelectorAll('.btn-start-task').forEach(btn => {
     btn.addEventListener('click', () => startTask(parseInt(btn.dataset.idx)));
   });
 }
 
 function startTask(idx) {
-  if (S.activeTaskIdx !== null) return; // já tem tarefa ativa
+  if (S.activeTaskIdx !== null) return;
   const task = S.tasks[idx];
   S.activeTaskIdx = idx;
   S.taskTimerMs   = 0;
 
-  // Avisar background para começar a contar clicks
   chrome.runtime.sendMessage({
     action:      'startTask',
     taskId:      task.id,
     description: task.description,
   });
 
-  // Mostrar card de tarefa ativa
-  $('active-task-desc').textContent = task.description;
-  $('active-task-timer').textContent = '00:00';
-  $('active-task-clicks').textContent = '0';
+  $('active-task-desc').textContent     = task.description;
+  $('active-task-timer').textContent    = '00:00';
+  $('active-task-clicks').textContent   = '0';
   show('active-task-card');
 
-  // Timer local (visual) — continua em background via background.js
-  clearInterval(S.taskTimerInt);
-  S.taskTimerInt = setInterval(() => {
-    S.taskTimerMs += 1000;
-    $('active-task-timer').textContent = fmtMs(S.taskTimerMs);
-
-    // Atualizar clicks do background
-    chrome.runtime.sendMessage({ action: 'getEventStats' }, (res) => {
-      if (res?.stats?.activeTask) {
-        $('active-task-clicks').textContent = res.stats.activeTask.clicks || 0;
-      }
-    });
-  }, 1000);
-
+  resumeTaskTimer();
+  saveSessionState();
   renderSessionTasks();
 }
 
 async function finishTask(success) {
   clearInterval(S.taskTimerInt);
 
-  return new Promise(resolve => {
+  await new Promise(resolve => {
     chrome.runtime.sendMessage({ action: success ? 'completeTask' : 'skipTask', success }, (res) => {
       if (res?.result) {
-        const task = S.tasks[S.activeTaskIdx];
+        const task       = S.tasks[S.activeTaskIdx];
         task._done       = true;
         task._success    = success;
         task._durationMs = res.result.durationMs;
         task._clicks     = res.result.clicks;
       }
       S.activeTaskIdx = null;
+      S.taskTimerMs   = 0;
       hide('active-task-card');
+      saveSessionState();
       renderSessionTasks();
-
-      // Avançar para próxima tarefa automaticamente se houver
-      const nextIdx = S.tasks.findIndex(t => !t._done);
-      if (nextIdx !== -1) {
-        // Sugerir iniciar próxima
-        setTimeout(() => {
-          const nextBtn = document.querySelector(`.btn-start-task[data-idx="${nextIdx}"]`);
-          if (nextBtn) nextBtn.style.animation = 'pulse 1s 2';
-        }, 300);
-      }
       resolve();
     });
   });
@@ -366,13 +443,11 @@ async function finishTask(success) {
 async function endSession() {
   if (!confirm('Encerrar a sessão e ver os resultados?')) return;
 
-  // Se houver tarefa ativa, finalizar como não concluída
   if (S.activeTaskIdx !== null) await finishTask(false);
 
   clearInterval(S.taskTimerInt);
   clearInterval(S.statsInt);
 
-  // Encerrar sessão no backend
   if (S.sessionId) {
     try { await api('PATCH', `/sessions/${S.sessionId}/end`, {}); } catch(_) {}
   }
@@ -400,12 +475,15 @@ function updateSessionStats() {
 function bindResults() {
   $('btn-new-session').addEventListener('click', () => {
     chrome.runtime.sendMessage({ action: 'resetStats' });
+    clearSessionState();
+
+    // Resetar estado local
     S.sessionId = null; S.userId = null; S.sessionStart = null;
     S.activeTestId = null; S.activeTestName = null;
-    S.tasks = []; S.activeTaskIdx = null;
+    S.tasks = []; S.activeTaskIdx = null; S.taskTimerMs = 0;
+
     showScreen('identify');
-    document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
-    hide('form-participant'); hide('form-admin');
+    resetIdentifyUI();
   });
 }
 
@@ -413,7 +491,6 @@ async function showResults() {
   showScreen('results');
   $('results-test-name').textContent = S.activeTestName || '—';
 
-  // Pegar stats do background
   const statsRes = await new Promise(r =>
     chrome.runtime.sendMessage({ action: 'getEventStats' }, r)
   );
@@ -423,27 +500,21 @@ async function showResults() {
   const succeeded = done.filter(t => t._success);
   const totalMs   = done.reduce((a, t) => a + (t._durationMs || 0), 0);
   const totalClks = done.reduce((a, t) => a + (t._clicks || 0), 0);
-  const sessionSec= bgStats.sessionDuration || Math.floor((Date.now() - S.sessionStart) / 1000);
+  const sessionSec = bgStats.sessionDuration || Math.floor((Date.now() - S.sessionStart) / 1000);
 
-  const successRate = done.length > 0
-    ? Math.round((succeeded.length / S.tasks.length) * 100) + '%'
-    : '—';
-  const avgTime  = done.length > 0 ? fmtMs(Math.round(totalMs / done.length)) : '—';
-  const avgClicks= done.length > 0 ? Math.round(totalClks / done.length) : '—';
+  $('m-success-rate').textContent = done.length > 0
+    ? Math.round((succeeded.length / S.tasks.length) * 100) + '%' : '—';
+  $('m-total-time').textContent   = fmtSec(sessionSec);
+  $('m-total-clicks').textContent = totalClks;
+  $('m-avg-time').textContent     = done.length > 0 ? fmtMs(Math.round(totalMs / done.length)) : '—';
+  $('m-avg-clicks').textContent   = done.length > 0 ? Math.round(totalClks / done.length) : '—';
+  $('m-events').textContent       = bgStats.eventsCollected || 0;
 
-  $('m-success-rate').textContent  = successRate;
-  $('m-total-time').textContent    = fmtSec(sessionSec);
-  $('m-total-clicks').textContent  = totalClks;
-  $('m-avg-time').textContent      = avgTime;
-  $('m-avg-clicks').textContent    = avgClicks;
-  $('m-events').textContent        = bgStats.eventsCollected || 0;
-
-  // Detalhe por tarefa
   const breakdown = $('tasks-breakdown');
   breakdown.innerHTML = '';
 
   S.tasks.forEach((t, i) => {
-    const el  = document.createElement('div');
+    const el = document.createElement('div');
     el.className = 'breakdown-item';
 
     const status = !t._done
@@ -452,9 +523,6 @@ async function showResults() {
         ? '<span class="breakdown-badge ok">Concluída ✓</span>'
         : '<span class="breakdown-badge fail">Não concluída ✗</span>';
 
-    const dur  = t._durationMs != null ? fmtMs(t._durationMs) : '—';
-    const clks = t._clicks     != null ? t._clicks             : '—';
-
     el.innerHTML = `
       <div class="breakdown-header">
         <span class="breakdown-num">#${i+1}</span>
@@ -462,12 +530,14 @@ async function showResults() {
         ${status}
       </div>
       <div class="breakdown-stats">
-        <span class="bstat">⏱ <strong>${dur}</strong></span>
-        <span class="bstat">🖱 <strong>${clks}</strong> clicks</span>
+        <span class="bstat">⏱ <strong>${t._durationMs != null ? fmtMs(t._durationMs) : '—'}</strong></span>
+        <span class="bstat">🖱 <strong>${t._clicks != null ? t._clicks : '—'}</strong> clicks</span>
       </div>
     `;
     breakdown.appendChild(el);
   });
+
+  saveSessionState();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -486,7 +556,6 @@ async function loadAdminTests() {
   const list = $('admin-tests-list');
   list.innerHTML = '<p class="empty-state">Carregando...</p>';
   try {
-    // Filtra pelos testes do site atual
     const siteParam = encodeURIComponent(S.currentSiteUrl || '');
     const res   = await api('GET', `/tests?site_url=${siteParam}`);
     const tests = res.data || [];
@@ -546,19 +615,16 @@ function bindAdmin() {
   $('btn-create-test').addEventListener('click', async () => {
     const name = getText('test-name');
     if (!name) return showFeedback('test-feedback', 'Digite o nome do teste.', true);
-
     try {
-      // Passa site_url diretamente — backend cria o site se necessário
-      const tRes = await api('POST', '/tests', {
-        name,
-        site_url: S.currentSiteUrl || 'http://desconhecido',
-      });
+      const tRes = await api('POST', '/tests', { name, site_url: S.currentSiteUrl || 'http://desconhecido' });
       S.activeTestId   = tRes.data.id;
       S.activeTestName = tRes.data.name;
       $('test-name').value = '';
       $('tasks-test-badge').textContent = name;
       show('tasks-section');
-      showFeedback('test-feedback', `✓ Teste "${name}" criado para ${new URL(S.currentSiteUrl).hostname}!`);
+      let host = S.currentSiteUrl;
+      try { host = new URL(S.currentSiteUrl).hostname; } catch(_) {}
+      showFeedback('test-feedback', `✓ Teste "${name}" criado para ${host}!`);
       loadAdminTests();
     } catch(err) {
       showFeedback('test-feedback', `Erro: ${err.message}`, true);
@@ -567,9 +633,8 @@ function bindAdmin() {
 
   $('btn-add-task').addEventListener('click', async () => {
     const desc = getText('task-description');
-    if (!desc)             return showFeedback('task-feedback', 'Digite a descrição.', true);
-    if (!S.activeTestId)   return showFeedback('task-feedback', 'Crie um teste primeiro.', true);
-
+    if (!desc)           return showFeedback('task-feedback', 'Digite a descrição.', true);
+    if (!S.activeTestId) return showFeedback('task-feedback', 'Crie um teste primeiro.', true);
     try {
       const res = await api('POST', '/tasks', { test_id: S.activeTestId, description: desc });
       S.tasks.push(res.data);
@@ -581,7 +646,7 @@ function bindAdmin() {
     }
   });
 
-  $('task-description').addEventListener('keydown', e => { if (e.key==='Enter') $('btn-add-task').click(); });
+  $('task-description').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-add-task').click(); });
 
   $('btn-save-url').addEventListener('click', async () => {
     const url = getText('admin-backend-url');
@@ -598,13 +663,11 @@ function bindAdmin() {
     await setStorage({ [ADMIN_PWD_KEY]: pwd });
     $('admin-new-password').value = '';
     $('btn-save-password').textContent = '✓';
-    setTimeout(() => $('btn-save-password').textContent = '✓', 1500);
   });
 
   $('btn-logout-admin').addEventListener('click', () => {
     showScreen('identify');
-    document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
-    hide('form-admin'); hide('form-participant');
+    resetIdentifyUI();
     $('admin-password').value = '';
   });
 }
