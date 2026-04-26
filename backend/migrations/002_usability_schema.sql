@@ -12,6 +12,19 @@ CREATE TABLE IF NOT EXISTS users (
   created_at      TIMESTAMP   NOT NULL DEFAULT NOW()
 );
 
+-- ── 1. Tabela de pesquisadores ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS researchers (
+  id         SERIAL PRIMARY KEY,
+  name       TEXT        NOT NULL,
+  email      TEXT        NOT NULL UNIQUE,
+  pwd_hash   TEXT        NOT NULL,   -- SHA-256(salt + senha)
+  salt       TEXT        NOT NULL,   -- salt aleatório por pesquisador
+  created_at TIMESTAMP   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_researchers_email ON researchers(email);
+
+
 -- ── 2. Sites monitorados ─────────────────────────────────────
 CREATE TABLE IF NOT EXISTS sites (
   id         SERIAL PRIMARY KEY,

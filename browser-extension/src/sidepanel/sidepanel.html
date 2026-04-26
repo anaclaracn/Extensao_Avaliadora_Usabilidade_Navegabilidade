@@ -4,11 +4,14 @@
     <meta charset="UTF-8" />
     <title>Avaliador UX</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="sidepanel.css" />
+    <link rel="stylesheet" href="styles/base.css" />
+    <link rel="stylesheet" href="styles/identify.css" />
+    <link rel="stylesheet" href="styles/participant.css" />
+    <link rel="stylesheet" href="styles/researcher.css" />
   </head>
   <body>
 
-    <!-- ══ TELA 1: IDENTIFICAÇÃO ══════════════════════════════ -->
+    <!-- ══ TELA: IDENTIFICAÇÃO ════════════════════════════════ -->
     <div id="screen-identify" class="screen active">
       <div class="header">
         <div class="logo">◈</div>
@@ -31,7 +34,6 @@
             </button>
           </div>
         </div>
-
         <div id="form-participant" class="card form-card hidden">
           <p class="card-label">Seus dados (anônimos)</p>
           <div class="field">
@@ -61,20 +63,27 @@
           <div id="participant-error" class="error-msg hidden"></div>
           <button id="btn-start-participant" class="btn-primary">Continuar →</button>
         </div>
-
         <div id="form-admin" class="card form-card hidden">
-          <p class="card-label">Acesso de pesquisador</p>
+          <p class="card-label">Login de pesquisador</p>
+          <div class="field">
+            <label>E-mail</label>
+            <input type="email" id="admin-email" placeholder="seu@email.com" />
+          </div>
           <div class="field">
             <label>Senha</label>
             <input type="password" id="admin-password" placeholder="••••••••" />
           </div>
           <div id="admin-error" class="error-msg hidden"></div>
           <button id="btn-login-admin" class="btn-primary">Entrar →</button>
+          <div class="form-footer">
+            Ainda não tem conta?
+            <button id="btn-go-register" class="btn-link">Criar conta</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- ══ TELA 2: ESCOLHA DE TESTE ═══════════════════════════ -->
+    <!-- ══ TELA: ESCOLHA DE TESTE ══════════════════════════════ -->
     <div id="screen-pick-test" class="screen hidden">
       <div class="header">
         <div class="logo">📋</div>
@@ -84,15 +93,13 @@
       <div class="container">
         <div class="card">
           <p class="card-label">Testes disponíveis neste site</p>
-          <div id="tests-list" class="tests-list">
-            <p class="empty-state">Carregando...</p>
-          </div>
+          <div id="tests-list" class="tests-list"><p class="empty-state">Carregando...</p></div>
         </div>
         <button id="btn-back-from-pick" class="btn-ghost">← Voltar</button>
       </div>
     </div>
 
-    <!-- ══ TELA 3: SESSÃO — TAREFAS ═══════════════════════════ -->
+    <!-- ══ TELA: SESSÃO ATIVA ══════════════════════════════════ -->
     <div id="screen-session" class="screen hidden">
       <div class="header header-session">
         <div class="pulse-dot"></div>
@@ -100,50 +107,32 @@
         <p class="subtitle" id="session-site-label">—</p>
       </div>
       <div class="container">
-
-        <!-- Stats rápidas -->
         <div class="card stats-card">
           <div class="stat-row">
-            <div class="stat">
-              <span class="stat-val" id="s-events">0</span>
-              <span class="stat-lbl">eventos</span>
-            </div>
-            <div class="stat">
-              <span class="stat-val" id="s-time">0s</span>
-              <span class="stat-lbl">sessão</span>
-            </div>
-            <div class="stat">
-              <span class="stat-val" id="s-done">0</span>
-              <span class="stat-lbl">tarefas</span>
-            </div>
+            <div class="stat"><span class="stat-val" id="s-events">0</span><span class="stat-lbl">eventos</span></div>
+            <div class="stat"><span class="stat-val" id="s-time">0s</span><span class="stat-lbl">sessão</span></div>
+            <div class="stat"><span class="stat-val" id="s-done">0</span><span class="stat-lbl">tarefas</span></div>
           </div>
         </div>
-
-        <!-- Tarefa ativa (timer) -->
         <div id="active-task-card" class="card active-task-card hidden">
           <p class="card-label">⏱ Tarefa em andamento</p>
           <p id="active-task-desc" class="active-task-desc"></p>
           <div class="active-task-timer" id="active-task-timer">00:00</div>
-          <div class="active-task-clicks">
-            <span id="active-task-clicks">0</span> clicks registrados
-          </div>
+          <div class="active-task-clicks"><span id="active-task-clicks">0</span> clicks registrados</div>
           <div class="active-task-actions">
             <button id="btn-task-done" class="btn-success">✓ Concluí</button>
             <button id="btn-task-skip" class="btn-skip">✗ Não consegui</button>
           </div>
         </div>
-
-        <!-- Lista de tarefas -->
         <div class="card">
           <p class="card-label">Tarefas do teste</p>
           <div id="session-tasks-list" class="tasks-list"></div>
         </div>
-
         <button id="btn-end-session" class="btn-danger">Encerrar sessão</button>
       </div>
     </div>
 
-    <!-- ══ TELA 4: MÉTRICAS FINAIS ════════════════════════════ -->
+    <!-- ══ TELA: RESULTADOS ════════════════════════════════════ -->
     <div id="screen-results" class="screen hidden">
       <div class="header header-results">
         <div class="logo">📊</div>
@@ -151,67 +140,73 @@
         <p class="subtitle" id="results-test-name">—</p>
       </div>
       <div class="container">
-
-        <!-- Resumo geral -->
         <div class="card">
           <p class="card-label">Resumo geral</p>
           <div class="metrics-grid">
-            <div class="metric-box">
-              <span class="metric-val" id="m-success-rate">—</span>
-              <span class="metric-lbl">taxa de sucesso</span>
-            </div>
-            <div class="metric-box">
-              <span class="metric-val" id="m-total-time">—</span>
-              <span class="metric-lbl">tempo total</span>
-            </div>
-            <div class="metric-box">
-              <span class="metric-val" id="m-total-clicks">—</span>
-              <span class="metric-lbl">clicks totais</span>
-            </div>
-            <div class="metric-box">
-              <span class="metric-val" id="m-avg-time">—</span>
-              <span class="metric-lbl">tempo médio/tarefa</span>
-            </div>
-            <div class="metric-box">
-              <span class="metric-val" id="m-avg-clicks">—</span>
-              <span class="metric-lbl">clicks médios/tarefa</span>
-            </div>
-            <div class="metric-box">
-              <span class="metric-val" id="m-events">—</span>
-              <span class="metric-lbl">eventos totais</span>
-            </div>
+            <div class="metric-box"><span class="metric-val" id="m-success-rate">—</span><span class="metric-lbl">taxa de sucesso</span></div>
+            <div class="metric-box"><span class="metric-val" id="m-total-time">—</span><span class="metric-lbl">tempo total</span></div>
+            <div class="metric-box"><span class="metric-val" id="m-total-clicks">—</span><span class="metric-lbl">clicks totais</span></div>
+            <div class="metric-box"><span class="metric-val" id="m-avg-time">—</span><span class="metric-lbl">tempo médio/tarefa</span></div>
+            <div class="metric-box"><span class="metric-val" id="m-avg-clicks">—</span><span class="metric-lbl">clicks médios/tarefa</span></div>
+            <div class="metric-box"><span class="metric-val" id="m-events">—</span><span class="metric-lbl">eventos totais</span></div>
           </div>
         </div>
-
-        <!-- Detalhe por tarefa -->
         <div class="card">
           <p class="card-label">Detalhe por tarefa</p>
           <div id="tasks-breakdown" class="tasks-breakdown"></div>
         </div>
-
         <button id="btn-new-session" class="btn-primary">Nova sessão</button>
       </div>
     </div>
 
-    <!-- ══ TELA 5: PAINEL PESQUISADOR ════════════════════════ -->
+    <!-- ══ TELA: CADASTRO DE PESQUISADOR ═══════════════════════ -->
+    <div id="screen-register" class="screen hidden">
+      <div class="header header-admin">
+        <div class="logo">🔬</div>
+        <h1>Criar conta</h1>
+        <p class="subtitle">Acesso de pesquisador</p>
+      </div>
+      <div class="container">
+        <div class="card form-card">
+          <p class="card-label">Senha mestra</p>
+          <div class="field">
+            <label>Senha de autorização</label>
+            <input type="password" id="reg-master" placeholder="Fornecida pelo administrador" />
+          </div>
+          <div id="reg-master-error" class="error-msg hidden"></div>
+        </div>
+        <div id="reg-form-body" class="hidden">
+          <div class="card form-card">
+            <p class="card-label">Dados do pesquisador</p>
+            <div class="field"><label>Nome completo</label><input type="text" id="reg-name" placeholder="Seu nome" /></div>
+            <div class="field"><label>E-mail</label><input type="email" id="reg-email" placeholder="seuemail@gmail.com" /></div>
+            <div class="field"><label>Senha de acesso</label><input type="password" id="reg-password" placeholder="Mínimo 6 caracteres" /></div>
+            <div class="field"><label>Confirmar senha</label><input type="password" id="reg-password-confirm" placeholder="Repita a senha" /></div>
+            <div id="reg-error" class="error-msg hidden"></div>
+            <button id="btn-register" class="btn-primary">Criar conta →</button>
+          </div>
+        </div>
+        <button id="btn-back-register" class="btn-ghost">← Voltar ao login</button>
+      </div>
+    </div>
+
+    <!-- ══ TELA: PAINEL DO PESQUISADOR ════════════════════════ -->
     <div id="screen-admin" class="screen hidden">
       <div class="header header-admin">
         <div class="logo">🔬</div>
         <h1>Painel do Pesquisador</h1>
         <p class="subtitle" id="admin-site-label">—</p>
+        <div class="researcher-badge hidden" id="researcher-badge">
+          <span id="researcher-name-display"></span>
+        </div>
       </div>
       <div class="container">
-
         <div class="card">
           <p class="card-label">Criar teste de usabilidade</p>
-          <div class="field">
-            <label>Nome do teste</label>
-            <input type="text" id="test-name" placeholder="Ex: Avaliação de checkout" />
-          </div>
+          <div class="field"><label>Nome do teste</label><input type="text" id="test-name" placeholder="Ex: Avaliação de checkout" /></div>
           <button id="btn-create-test" class="btn-secondary">+ Criar teste</button>
           <div id="test-feedback" class="feedback hidden"></div>
         </div>
-
         <div id="tasks-section" class="card hidden">
           <p class="card-label">Tarefas <span id="tasks-test-badge" class="badge"></span></p>
           <div id="tasks-list" class="tasks-list"></div>
@@ -222,36 +217,18 @@
           <button id="btn-add-task" class="btn-secondary">+ Adicionar tarefa</button>
           <div id="task-feedback" class="feedback hidden"></div>
         </div>
-
         <div class="card">
           <p class="card-label">Testes existentes</p>
-          <div id="admin-tests-list" class="tests-list">
-            <p class="empty-state">Carregando...</p>
-          </div>
+          <div id="admin-tests-list" class="tests-list"><p class="empty-state">Carregando...</p></div>
         </div>
-
-        <div class="card">
-          <p class="card-label">Configurações</p>
-          <div class="field">
-            <label>URL do Backend</label>
-            <div class="input-row">
-              <input type="text" id="admin-backend-url" placeholder="http://localhost:3000" />
-              <button id="btn-save-url" class="btn-icon">✓</button>
-            </div>
-          </div>
-          <div class="field">
-            <label>Senha de pesquisador</label>
-            <div class="input-row">
-              <input type="password" id="admin-new-password" placeholder="Nova senha" />
-              <button id="btn-save-password" class="btn-icon">✓</button>
-            </div>
-          </div>
-        </div>
-
-        <button id="btn-logout-admin" class="btn-ghost">← Voltar</button>
+        <button id="btn-logout-admin" class="btn-ghost">← Sair</button>
       </div>
     </div>
 
-    <script src="sidepanel.js"></script>
+    <!-- Scripts por responsabilidade — ordem importa -->
+    <script src="scripts/main.js"></script>
+    <script src="scripts/identify.js"></script>
+    <script src="scripts/participant.js"></script>
+    <script src="scripts/researcher.js"></script>
   </body>
 </html>

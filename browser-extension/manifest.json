@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Avaliador UX - Usabilidade & Navegabilidade",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Extensão para análise de usabilidade e navegabilidade em interfaces web.",
   "permissions": ["activeTab", "scripting", "storage", "tabs", "sidePanel"],
   "host_permissions": ["<all_urls>"],
@@ -20,12 +20,6 @@
       "js": ["src/scripts/content-script.js"],
       "run_at": "document_start",
       "all_frames": false
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": ["src/scripts/injected.js"],
-      "matches": ["<all_urls>"]
     }
   ]
 }

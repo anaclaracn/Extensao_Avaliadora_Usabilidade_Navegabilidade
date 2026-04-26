@@ -58,6 +58,7 @@ const validateTaskResult = requireFields([
 ]);
 
 module.exports = {
+  requireFields,
   validateUser,
   validateSession,
   validateEvent,

@@ -1,13 +1,9 @@
 /**
  * BACKGROUND.JS v3 — Service Worker
- *
- * Novidades:
- *  - Gerencia timers de tarefas em background (popup pode fechar)
- *  - Rastreia clicks por tarefa ativa
- *  - Expõe getTaskState para o popup consultar
+ * Gerencia estado de sessão, timers de tarefa e envio de eventos ao backend.
+ * A sessão é criada pelo sidepanel e comunicada via 'sessionCreated'.
  */
 
-// ── Estado global ────────────────────────────────────────────
 const state = {
   isEnabled:        true,
   backendUrl:       'http://localhost:3000',
@@ -16,10 +12,8 @@ const state = {
   userId:           null,
   sessionId:        null,
   sessionCreating:  false,
-
-  // Tarefa em andamento
-  activeTask:       null,   // { id, description, startedAt (ms), clicks }
-  completedTasks:   [],     // [{ taskId, description, startedAt, finishedAt, clicks, success }]
+  activeTask:       null,   // { id, description, startedAt, clicks }
+  completedTasks:   [],
 };
 
 // ── Boot ──────────────────────────────────────────────────────
@@ -28,8 +22,10 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
     chrome.storage.sync.set({ isEnabled: true, backendUrl: 'http://localhost:3000' });
   }
 });
-
 chrome.storage.sync.get(null, (data) => { Object.assign(state, data); });
+
+// ── Abrir side panel ao clicar no ícone ───────────────────────
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 
 // ── Messages ──────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
@@ -64,37 +60,20 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
       });
       break;
 
-    // Participante clicou em "Começar tarefa"
     case 'startTask':
-      state.activeTask = {
-        id:          req.taskId,
-        description: req.description,
-        startedAt:   Date.now(),
-        clicks:      0,
-      };
-      console.log('▶️  Tarefa iniciada:', req.description);
+      state.activeTask = { id: req.taskId, description: req.description, startedAt: Date.now(), clicks: 0 };
       sendResponse({ success: true });
       break;
 
-    // Participante clicou em "Concluir tarefa"
     case 'completeTask':
-      handleCompleteTask(req.success ?? true, sendResponse);
-      return true;
-
-    // Participante abandonou tarefa sem concluir
     case 'skipTask':
-      handleCompleteTask(false, sendResponse);
+      handleCompleteTask(req.success ?? (req.action === 'completeTask'), sendResponse);
       return true;
-
-    case 'getCompletedTasks':
-      sendResponse({ success: true, tasks: state.completedTasks });
-      break;
 
     case 'toggleExtension':
       state.isEnabled = req.enabled;
       if (!req.enabled) resetSession();
       chrome.storage.sync.set({ isEnabled: req.enabled });
-      notifyTabs({ action: 'toggleTracking', enabled: req.enabled });
       sendResponse({ success: true });
       break;
 
@@ -102,7 +81,6 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
       state.backendUrl = req.url;
       resetSession();
       chrome.storage.sync.set({ backendUrl: req.url });
-      notifyTabs({ action: 'updateConfig', config: { backendUrl: req.url } });
       sendResponse({ success: true });
       break;
 
@@ -112,11 +90,7 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
       break;
 
     case 'sendEventToBackend':
-      handleSendEvent(
-        req.event,
-        sender?.tab?.url || req.event?.url || 'http://desconhecido',
-        sendResponse
-      );
+      handleSendEvent(req.event, sender?.tab?.url || req.event?.url || 'http://desconhecido', sendResponse);
       return true;
 
     default:
@@ -127,134 +101,70 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
 
 // ── Completar tarefa ──────────────────────────────────────────
 async function handleCompleteTask(success, sendResponse) {
-  if (!state.activeTask) {
-    sendResponse({ success: false, error: 'Nenhuma tarefa ativa' });
-    return;
-  }
+  if (!state.activeTask) { sendResponse({ success: false, error: 'Nenhuma tarefa ativa' }); return; }
 
   const task = state.activeTask;
   const finishedAt = Date.now();
-
-  const result = {
-    taskId:      task.id,
-    description: task.description,
-    startedAt:   task.startedAt,
-    finishedAt,
-    durationMs:  finishedAt - task.startedAt,
-    clicks:      task.clicks,
-    success,
-  };
+  const result = { taskId: task.id, description: task.description, startedAt: task.startedAt, finishedAt, durationMs: finishedAt - task.startedAt, clicks: task.clicks, success };
 
   state.completedTasks.push(result);
   state.activeTask = null;
 
-  // Salvar no backend
   try {
     await fetch(`${state.backendUrl}/task-results`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        task_id:     result.taskId,
-        session_id:  state.sessionId,
-        started_at:  new Date(result.startedAt).toISOString(),
-        finished_at: new Date(result.finishedAt).toISOString(),
-        success:     result.success,
-        clicks:      result.clicks,
-      }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task_id: result.taskId, session_id: state.sessionId, started_at: new Date(result.startedAt).toISOString(), finished_at: new Date(result.finishedAt).toISOString(), success: result.success, clicks: result.clicks }),
     });
-    console.log('✅ task_result salvo');
-  } catch (err) {
-    console.error('❌ Erro ao salvar task_result:', err.message);
-  }
+  } catch (err) { console.error('❌ task_result:', err.message); }
 
   sendResponse({ success: true, result });
 }
 
 // ── Enviar evento ─────────────────────────────────────────────
 async function handleSendEvent(event, siteUrl, sendResponse) {
-  if (!state.isEnabled) {
-    sendResponse({ success: false, error: 'Extensão desabilitada' });
-    return;
-  }
-
+  if (!state.isEnabled) { sendResponse({ success: false, error: 'Desabilitada' }); return; }
   if (!state.sessionId) {
     const sid = await ensureSession(siteUrl);
     if (!sid) { sendResponse({ success: false, error: 'Sem sessão' }); return; }
   }
 
-  // Contar click na tarefa ativa
-  if (state.activeTask && event.type === 'click') {
-    state.activeTask.clicks++;
-  }
-
-  const payload = { ...event, session_id: state.sessionId };
+  if (state.activeTask && event.type === 'click') state.activeTask.clicks++;
 
   try {
     const res  = await fetch(`${state.backendUrl}/events`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...event, session_id: state.sessionId }),
     });
     const data = await res.json();
-
     if (!res.ok) { sendResponse({ success: false, error: data.error }); return; }
-
     state.eventsCollected++;
     chrome.runtime.sendMessage({ action: 'eventLogged', event }).catch(() => {});
     sendResponse({ success: true, data });
-
-  } catch (err) {
-    sendResponse({ success: false, error: err.message });
-  }
+  } catch (err) { sendResponse({ success: false, error: err.message }); }
 }
 
-// ── Fallback session ──────────────────────────────────────────
+// ── Fallback: criar sessão automaticamente ────────────────────
 async function ensureSession(siteUrl) {
   if (state.sessionId) return state.sessionId;
-  if (state.sessionCreating) {
-    await new Promise(r => setTimeout(r, 1200));
-    return state.sessionId;
-  }
+  if (state.sessionCreating) { await new Promise(r => setTimeout(r, 1200)); return state.sessionId; }
   state.sessionCreating = true;
   try {
-    const uRes  = await fetch(`${state.backendUrl}/users`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ age: 0, gender: 'nao_informado', education_level: 'nao_informado' }),
-    });
+    const uRes  = await fetch(`${state.backendUrl}/users`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ age: 0, gender: 'nao_informado', education_level: 'nao_informado' }) });
     const uData = await uRes.json();
     state.userId = uData.data.id;
-
-    const sRes  = await fetch(`${state.backendUrl}/sessions`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: state.userId, site_url: siteUrl }),
-    });
+    const sRes  = await fetch(`${state.backendUrl}/sessions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: state.userId, site_url: siteUrl }) });
     const sData = await sRes.json();
-    state.sessionId        = sData.session_id;
+    state.sessionId = sData.session_id;
     state.sessionStartTime = Date.now();
     return state.sessionId;
-  } catch (err) {
-    console.error('❌ Fallback session falhou:', err.message);
-    return null;
-  } finally {
-    state.sessionCreating = false;
-  }
+  } catch (err) { console.error('❌ Fallback session:', err.message); return null; }
+  finally { state.sessionCreating = false; }
 }
 
 function resetSession() {
-  state.sessionId        = null;
-  state.userId           = null;
-  state.eventsCollected  = 0;
-  state.sessionStartTime = Date.now();
-  state.activeTask       = null;
-  state.completedTasks   = [];
-}
-
-function notifyTabs(msg) {
-  chrome.tabs.query({}, tabs => {
-    tabs.forEach(tab => {
-      chrome.tabs.sendMessage(tab.id, msg, () => { chrome.runtime.lastError; });
-    });
-  });
+  state.sessionId = null; state.userId = null;
+  state.eventsCollected = 0; state.sessionStartTime = Date.now();
+  state.activeTask = null; state.completedTasks = [];
 }
 
 // ── Badge ─────────────────────────────────────────────────────
@@ -262,13 +172,3 @@ setInterval(() => {
   chrome.action.setBadgeText({ text: state.eventsCollected > 0 ? String(state.eventsCollected) : '' });
   chrome.action.setBadgeBackgroundColor({ color: state.activeTask ? '#f59e0b' : '#0d9488' });
 }, 1500);
-
-console.log('🔧 Background v3 carregado!');
-
-// ── Abrir side panel ao clicar no ícone da extensão ──────────
-chrome.action.onClicked.addListener((tab) => {
-  chrome.sidePanel.open({ tabId: tab.id });
-});
-
-// Habilitar side panel para todas as abas automaticamente
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});

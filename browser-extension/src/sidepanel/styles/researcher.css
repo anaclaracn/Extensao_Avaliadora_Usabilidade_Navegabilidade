@@ -1,0 +1,5 @@
+/* RESEARCHER.CSS — Telas do pesquisador */
+.researcher-badge { margin-top:6px; background:rgba(255,255,255,0.15); border-radius:20px; padding:3px 12px; font-size:11px; font-family:var(--mono); color:rgba(255,255,255,0.9); }
+#reg-form-body { animation:slideDown .25s ease; }
+.btn-icon { padding:8px 12px; background:var(--accent); color:white; border:none; border-radius:7px; font-size:14px; cursor:pointer; }
+.btn-icon:hover { opacity:.85; }

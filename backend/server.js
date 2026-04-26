@@ -12,7 +12,8 @@ const sessionRoutes    = require('./src/routes/sessions');
 const eventRoutes      = require('./src/routes/events');
 const testRoutes       = require('./src/routes/tests');
 const taskRoutes       = require('./src/routes/tasks');
-const taskResultRoutes = require('./src/routes/taskResults');
+const taskResultRoutes  = require('./src/routes/taskResults');
+const researcherRoutes  = require('./src/routes/researchers');
 
 const app = express();
 
@@ -60,6 +61,9 @@ app.get('/', (req, res) => {
       'POST   /task-results',
       'GET    /task-results?session_id= | ?task_id=',
       'GET    /task-results/stats?test_id=',
+      'POST   /researchers/register',
+      'POST   /researchers/login',
+      'GET    /researchers',
     ],
   });
 });
@@ -73,7 +77,8 @@ app.use('/sessions',     sessionRoutes);
 app.use('/events',       eventRoutes);
 app.use('/tests',        testRoutes);
 app.use('/tasks',        taskRoutes);
-app.use('/task-results', taskResultRoutes);
+app.use('/task-results',  taskResultRoutes);
+app.use('/researchers',   researcherRoutes);
 
 // ============================================================
 // ROTA NÃO ENCONTRADA
