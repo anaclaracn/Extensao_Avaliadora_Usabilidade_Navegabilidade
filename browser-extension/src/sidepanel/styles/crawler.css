@@ -1,0 +1,103 @@
+/* CRAWLER.CSS — Tela do crawler */
+
+.btn-crawler-start {
+  width: 100%; padding: 12px; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, #7c3aed, #1a56db);
+  color: white; font-size: 13px; font-weight: 700;
+  font-family: var(--sans); cursor: pointer;
+  transition: opacity .15s, transform .15s;
+  margin-bottom: 8px;
+}
+.btn-crawler-start:hover    { opacity: .9; transform: translateY(-1px); }
+.btn-crawler-start:disabled { opacity: .5; cursor: default; transform: none; }
+
+/* ── URL do domínio base ─────────────────────────────────────── */
+.crawler-url-display {
+  font-family: var(--mono); font-size: 12px;
+  color: var(--primary); background: #eff6ff;
+  border: 1px solid #bfdbfe; border-radius: 6px;
+  padding: 8px 10px; word-break: break-all;
+}
+
+/* ── Status card (rodando) ───────────────────────────────────── */
+.crawler-status-card { background: #0f172a; border-color: #1e293b; }
+
+.crawler-status-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px;
+  font-size: 13px; font-weight: 600; color: #e2e8f0;
+}
+
+.crawler-pulse {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #4ade80; flex-shrink: 0;
+  box-shadow: 0 0 0 0 rgba(74,222,128,.6);
+  animation: pulse 1.6s infinite;
+}
+.crawler-pulse.stopped { background: #f87171; animation: none; }
+.crawler-pulse.done    { background: #4ade80; animation: none; }
+
+/* ── Contadores ──────────────────────────────────────────────── */
+.crawler-counters {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  margin-bottom: 12px;
+}
+.crawler-counter {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.crawler-counter-val {
+  font-family: var(--mono); font-size: 22px;
+  font-weight: 500; color: #4ade80;
+}
+.crawler-counter-val.error-val { color: #f87171; }
+.crawler-counter-lbl {
+  font-size: 9px; color: #64748b;
+  text-transform: uppercase; letter-spacing: .5px;
+}
+
+/* ── Progress bar ────────────────────────────────────────────── */
+.crawler-progress-bar-track {
+  height: 4px; background: #1e293b; border-radius: 4px; overflow: hidden;
+}
+.crawler-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #7c3aed, #4ade80);
+  border-radius: 4px; transition: width .8s ease;
+}
+
+/* ── Última URL ──────────────────────────────────────────────── */
+.crawler-last-url {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text-2); word-break: break-all;
+  line-height: 1.5; min-height: 32px;
+}
+
+/* ── Done card ───────────────────────────────────────────────── */
+.crawler-done-card { text-align: center; padding: 20px; }
+.crawler-done-title {
+  font-size: 15px; font-weight: 700; color: var(--text);
+}
+
+/* ── Histórico ───────────────────────────────────────────────── */
+.crawler-history-list { display: flex; flex-direction: column; gap: 6px; }
+
+.crawler-history-item {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px;
+  font-size: 11px;
+}
+.crawler-history-url {
+  font-weight: 600; color: var(--text);
+  margin-bottom: 4px; word-break: break-all;
+}
+.crawler-history-meta {
+  display: flex; gap: 10px; flex-wrap: wrap; color: var(--text-2);
+}
+.crawler-history-status {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  padding: 1px 7px; border-radius: 10px; margin-left: auto;
+}
+.status-done    { background: #dcfce7; color: var(--success); }
+.status-running { background: #eff6ff; color: var(--primary); }
+.status-error   { background: #fee2e2; color: var(--danger); }
+.status-stopped { background: #f3f4f6; color: var(--text-2); }

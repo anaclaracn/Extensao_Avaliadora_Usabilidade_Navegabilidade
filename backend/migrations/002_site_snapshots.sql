@@ -1,5 +1,5 @@
 -- ============================================================
--- MIGRATION v4 — Varredura de sites
+-- MIGRATION v2 — Varredura de sites
 -- Execute: psql -U postgres -d tcc_ux -f migrations/004_site_snapshots.sql
 -- ============================================================
 

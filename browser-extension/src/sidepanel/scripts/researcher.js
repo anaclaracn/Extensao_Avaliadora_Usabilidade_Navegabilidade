@@ -101,4 +101,6 @@ function bindAdmin(){
   });
 
   $('btn-go-scanner').addEventListener('click', () => enterScanner());
+
+  $('btn-go-crawler').addEventListener('click', () => enterCrawler());
 }
