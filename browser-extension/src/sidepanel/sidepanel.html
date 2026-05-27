@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="styles/identify.css" />
     <link rel="stylesheet" href="styles/participant.css" />
     <link rel="stylesheet" href="styles/researcher.css" />
+    <link rel="stylesheet" href="styles/scanner.css" />
   </head>
   <body>
 
@@ -221,14 +222,92 @@
           <p class="card-label">Testes existentes</p>
           <div id="admin-tests-list" class="tests-list"><p class="empty-state">Carregando...</p></div>
         </div>
+        <button id="btn-go-scanner" class="btn-secondary" style="width:100%;margin-bottom:8px">
+          🔍 Varrer este site
+        </button>
         <button id="btn-logout-admin" class="btn-ghost">← Sair</button>
       </div>
     </div>
 
-    <!-- Scripts por responsabilidade — ordem importa -->
+    <!-- ══ TELA: VARREDURA DE SITE ════════════════════════════════ -->
+    <div id="screen-scanner" class="screen hidden">
+      <div class="header header-admin">
+        <div class="logo">🔍</div>
+        <h1>Varredura do Site</h1>
+        <p class="subtitle" id="scanner-site-label">—</p>
+      </div>
+      <div class="container">
+
+        <div id="scan-action-section">
+          <div class="card">
+            <p class="card-label">Varredura completa</p>
+            <p style="font-size:12px;color:var(--text-2);margin-bottom:12px;line-height:1.6">
+              Captura todos os links, botões, títulos, formulários, imagens e elementos
+              de navegação da página atual e salva no banco de dados.
+            </p>
+            <button id="btn-scan" class="btn-scan">🔍 Iniciar varredura</button>
+          </div>
+          <div id="scan-feedback" class="feedback hidden"></div>
+        </div>
+
+        <div id="scan-progress-section" class="hidden">
+          <div class="scan-progress">
+            <div class="progress-label">
+              <span id="progress-label-text">Iniciando...</span>
+            </div>
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" id="progress-bar-fill" style="width:0%"></div>
+            </div>
+            <div class="progress-steps" id="progress-steps"></div>
+          </div>
+        </div>
+
+        <div id="scan-results-section" class="hidden">
+          <div class="card">
+            <p class="card-label">Resumo da varredura</p>
+            <div class="scan-summary-grid">
+              <div class="scan-stat"><span class="scan-stat-val" id="sr-links">0</span><span class="scan-stat-lbl">links</span></div>
+              <div class="scan-stat"><span class="scan-stat-val" id="sr-buttons">0</span><span class="scan-stat-lbl">botões</span></div>
+              <div class="scan-stat"><span class="scan-stat-val" id="sr-headings">0</span><span class="scan-stat-lbl">títulos</span></div>
+              <div class="scan-stat"><span class="scan-stat-val" id="sr-forms">0</span><span class="scan-stat-lbl">forms</span></div>
+              <div class="scan-stat"><span class="scan-stat-val" id="sr-images">0</span><span class="scan-stat-lbl">imagens</span></div>
+              <div class="scan-stat" style="border-color:var(--primary)">
+                <span class="scan-stat-val" id="sr-total" style="color:var(--primary)">0</span>
+                <span class="scan-stat-lbl">total</span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <p class="card-label">Elementos encontrados</p>
+            <div id="scan-element-groups"></div>
+          </div>
+          <button id="btn-scan-again" class="btn-scan" style="margin-bottom:10px">
+            🔍 Varrer novamente
+          </button>
+        </div>
+
+        <div class="card">
+          <p class="card-label" style="margin-bottom:6px">Varreduras anteriores</p>
+          <button id="btn-scan-history" class="btn-secondary" style="width:100%">
+            Ver histórico deste site
+          </button>
+        </div>
+        <div id="scan-history-section" class="hidden">
+          <div class="card">
+            <p class="card-label">Histórico</p>
+            <div id="snapshot-history-list" class="snapshot-history"></div>
+          </div>
+        </div>
+
+        <button id="btn-back-scanner" class="btn-ghost">← Voltar ao painel</button>
+      </div>
+    </div>
+
+    <!-- Scripts por responsabilidade -->
     <script src="scripts/main.js"></script>
     <script src="scripts/identify.js"></script>
     <script src="scripts/participant.js"></script>
+    <script src="scripts/scanner.js"></script>
     <script src="scripts/researcher.js"></script>
   </body>
 </html>

@@ -99,4 +99,6 @@ function bindAdmin(){
     showScreen('identify'); resetIdentifyUI();
     $('admin-password').value=''; $('admin-email').value='';
   });
+
+  $('btn-go-scanner').addEventListener('click', () => enterScanner());
 }

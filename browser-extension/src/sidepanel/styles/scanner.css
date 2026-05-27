@@ -1,0 +1,114 @@
+/* SCANNER.CSS — Tela de varredura do pesquisador */
+
+/* ── Botão de varredura ──────────────────────────────────────── */
+.btn-scan {
+  width: 100%; padding: 12px; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, #1a56db, #7c3aed);
+  color: white; font-size: 13px; font-weight: 700;
+  font-family: var(--sans); cursor: pointer;
+  transition: opacity .15s, transform .15s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-scan:hover    { opacity: .9; transform: translateY(-1px); }
+.btn-scan:disabled { opacity: .5; cursor: default; transform: none; }
+
+/* ── Progress bar ────────────────────────────────────────────── */
+.scan-progress {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px; margin-bottom: 10px;
+}
+.progress-label {
+  font-size: 11px; font-weight: 600; color: var(--text-2);
+  text-transform: uppercase; letter-spacing: .5px;
+  margin-bottom: 8px; display: flex; justify-content: space-between;
+}
+.progress-bar-track {
+  height: 6px; background: var(--border); border-radius: 4px; overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%; background: linear-gradient(90deg, #1a56db, #7c3aed);
+  border-radius: 4px; transition: width .4s ease;
+}
+.progress-steps {
+  display: flex; flex-direction: column; gap: 5px; margin-top: 10px;
+}
+.progress-step {
+  font-size: 11px; color: var(--text-3); display: flex; align-items: center; gap: 6px;
+}
+.progress-step.done   { color: var(--success); }
+.progress-step.active { color: var(--primary); font-weight: 600; }
+.step-icon { font-size: 12px; min-width: 16px; }
+
+/* ── Resultado da varredura ──────────────────────────────────── */
+.scan-summary-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px;
+}
+.scan-stat {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 8px; text-align: center;
+}
+.scan-stat-val {
+  display: block; font-family: var(--mono); font-size: 22px;
+  font-weight: 500; color: var(--primary);
+}
+.scan-stat-lbl {
+  display: block; font-size: 10px; color: var(--text-2);
+  text-transform: uppercase; letter-spacing: .4px; margin-top: 2px;
+}
+
+/* ── Lista de elementos por tipo ─────────────────────────────── */
+.element-group { margin-bottom: 8px; }
+.element-group-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px;
+  cursor: pointer; user-select: none;
+  font-size: 12px; font-weight: 600; color: var(--text);
+  transition: background .12s;
+}
+.element-group-header:hover { background: #eff6ff; border-color: var(--primary); }
+.element-group-icon { font-size: 14px; }
+.element-group-count { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-2); }
+.element-group-arrow { font-size: 10px; color: var(--text-3); transition: transform .2s; }
+.element-group-arrow.open { transform: rotate(90deg); }
+
+.element-list {
+  max-height: 220px; overflow-y: auto;
+  border: 1px solid var(--border); border-top: none;
+  border-radius: 0 0 8px 8px; background: white;
+}
+.element-list::-webkit-scrollbar { width: 3px; }
+.element-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.element-item {
+  padding: 7px 12px; border-bottom: 1px solid var(--border);
+  font-size: 11px; color: var(--text); line-height: 1.4;
+}
+.element-item:last-child { border-bottom: none; }
+.element-item-text  { font-weight: 500; color: var(--text); }
+.element-item-meta  { color: var(--text-3); font-family: var(--mono); font-size: 10px; margin-top: 2px; word-break: break-all; }
+.element-item-badge {
+  display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px;
+  border-radius: 4px; margin-left: 4px; vertical-align: middle;
+}
+.badge-external { background: #fef3c7; color: #92400e; }
+.badge-internal { background: #eff6ff; color: var(--primary); }
+.badge-h1 { background: #f3e8ff; color: #7c3aed; }
+.badge-h2 { background: #ede9fe; color: #7c3aed; }
+
+/* ── Histórico de varreduras ─────────────────────────────────── */
+.snapshot-history { display: flex; flex-direction: column; gap: 5px; }
+.snapshot-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 7px;
+  font-size: 11px; cursor: pointer; transition: all .12s;
+}
+.snapshot-item:hover { border-color: var(--primary); background: #eff6ff; }
+.snapshot-date { font-family: var(--mono); color: var(--text-3); font-size: 10px; white-space: nowrap; }
+.snapshot-counts { display: flex; gap: 6px; flex-wrap: wrap; }
+.snapshot-tag {
+  background: var(--border); color: var(--text-2);
+  font-size: 10px; padding: 1px 6px; border-radius: 4px;
+  font-family: var(--mono);
+}

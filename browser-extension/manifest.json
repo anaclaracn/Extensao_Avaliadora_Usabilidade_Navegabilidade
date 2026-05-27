@@ -3,8 +3,16 @@
   "name": "Avaliador UX - Usabilidade & Navegabilidade",
   "version": "3.0.0",
   "description": "Extensão para análise de usabilidade e navegabilidade em interfaces web.",
-  "permissions": ["activeTab", "scripting", "storage", "tabs", "sidePanel"],
-  "host_permissions": ["<all_urls>"],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "action": {
     "default_title": "Avaliador UX — Abrir painel"
   },
@@ -16,10 +24,24 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["src/scripts/content-script.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "src/scripts/content-script.js"
+      ],
       "run_at": "document_start",
       "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/scripts/scanner.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }
