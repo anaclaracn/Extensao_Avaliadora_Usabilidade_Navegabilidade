@@ -216,6 +216,22 @@
             <label>Nova tarefa</label>
             <input type="text" id="task-description" placeholder="Ex: Encontre o botão de compra" />
           </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <div class="field" style="flex:1;margin-bottom:0">
+              <label>Cliques mínimos <span style="font-weight:400;text-transform:none">(opcional)</span></label>
+              <input type="number" id="task-min-clicks" placeholder="Ex: 2" min="1"
+                style="padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;width:100%;background:var(--bg)" />
+            </div>
+            <div class="field" style="flex:1;margin-bottom:0">
+              <label>Páginas no caminho ótimo <span style="font-weight:400;text-transform:none">(opcional)</span></label>
+              <input type="number" id="task-optimal-path" placeholder="Ex: 3" min="1"
+                style="padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;width:100%;background:var(--bg)" />
+            </div>
+          </div>
+          <p style="font-size:10px;color:var(--text-3);margin-top:-6px;margin-bottom:10px;line-height:1.5">
+            Esses valores definem o "caminho ideal" para calcular métricas de eficiência
+            (quantos cliques/páginas um usuário expert levaria). Deixe em branco se não souber.
+          </p>
           <button id="btn-add-task" class="btn-secondary">+ Adicionar tarefa</button>
           <div id="task-feedback" class="feedback hidden"></div>
         </div>
@@ -308,121 +324,125 @@
     </div>
 
     <!-- ══ TELA: CRAWLER ══════════════════════════════════════════ -->
-    <div id="screen-crawler" class="screen hidden">
-      <div class="header header-admin">
-        <div class="logo">🕷️</div>
-        <h1>Crawler do Site</h1>
-        <p class="subtitle" id="crawler-site-label">—</p>
-      </div>
-      <div class="container">
-
-        <!-- Configuração e início -->
-        <div id="crawler-config-section">
-          <div class="card">
-            <p class="card-label">Domínio base</p>
-            <div class="crawler-url-display" id="crawler-base-url-display">—</div>
-            <p style="font-size:11px;color:var(--text-2);margin-top:8px;line-height:1.6">
-              O crawler vai varrer todas as páginas encontradas neste domínio,
-              seguindo os links recursivamente e evitando páginas já visitadas.
-            </p>
-          </div>
-
-          <div class="card">
-            <p class="card-label">Caminho do Chrome <span style="font-weight:400;text-transform:none">(opcional)</span></p>
-            <div class="field" style="margin-bottom:0">
-              <input type="text" id="crawler-chrome-path"
-                placeholder="Ex: C:\Program Files\Google\Chrome\Application\chrome.exe" />
-            </div>
-            <p style="font-size:10px;color:var(--text-3);margin-top:5px">
-              Deixe em branco para usar o caminho padrão do sistema.
-            </p>
-          </div>
-
-          <button id="btn-start-crawler" class="btn-crawler-start">
-            🕷️ Iniciar crawler
-          </button>
-          <div id="crawler-start-error" class="error-msg hidden"></div>
-        </div>
-
-        <!-- Progresso em tempo real -->
-        <div id="crawler-running-section" class="hidden">
-
-          <div class="card crawler-status-card" id="crawler-status-card">
-            <div class="crawler-status-header">
-              <div class="crawler-pulse" id="crawler-pulse"></div>
-              <span id="crawler-status-label">Iniciando...</span>
-            </div>
-            <div class="crawler-counters">
-              <div class="crawler-counter">
-                <span class="crawler-counter-val" id="c-crawled">0</span>
-                <span class="crawler-counter-lbl">varridas</span>
-              </div>
-              <div class="crawler-counter">
-                <span class="crawler-counter-val" id="c-found">0</span>
-                <span class="crawler-counter-lbl">encontradas</span>
-              </div>
-              <div class="crawler-counter">
-                <span class="crawler-counter-val" id="c-pending">0</span>
-                <span class="crawler-counter-lbl">pendentes</span>
-              </div>
-              <div class="crawler-counter">
-                <span class="crawler-counter-val" id="c-errors">0</span>
-                <span class="crawler-counter-lbl">erros</span>
-              </div>
-            </div>
-            <div class="crawler-progress-bar-track">
-              <div class="crawler-progress-bar-fill" id="crawler-progress-fill" style="width:0%"></div>
-            </div>
-          </div>
-
-          <div class="card">
-            <p class="card-label">Última página varrida</p>
-            <div id="crawler-last-url" class="crawler-last-url">—</div>
-          </div>
-
-          <button id="btn-stop-crawler" class="btn-danger">⏹ Parar crawler</button>
-        </div>
-
-        <!-- Resultado final -->
-        <div id="crawler-done-section" class="hidden">
-          <div class="card crawler-done-card">
-            <div style="font-size:32px;text-align:center;margin-bottom:8px" id="crawler-done-icon">✅</div>
-            <p class="crawler-done-title" id="crawler-done-title">Crawler concluído!</p>
-            <div class="crawler-counters" style="margin-top:12px">
-              <div class="crawler-counter">
-                <span class="crawler-counter-val" id="cd-crawled">0</span>
-                <span class="crawler-counter-lbl">páginas varridas</span>
-              </div>
-              <div class="crawler-counter">
-                <span class="crawler-counter-val" id="cd-found">0</span>
-                <span class="crawler-counter-lbl">páginas encontradas</span>
-              </div>
-              <div class="crawler-counter">
-                <span class="crawler-counter-val" id="cd-errors">0</span>
-                <span class="crawler-counter-lbl">erros</span>
-              </div>
-            </div>
-          </div>
-          <button id="btn-new-crawler" class="btn-primary">Novo crawler</button>
-        </div>
-
-        <!-- Histórico de sessões -->
-        <div class="card" style="margin-top:10px">
-          <p class="card-label" style="margin-bottom:6px">Sessões anteriores</p>
-          <button id="btn-crawler-history" class="btn-secondary" style="width:100%">
-            Ver histórico
-          </button>
-        </div>
-        <div id="crawler-history-section" class="hidden">
-          <div class="card">
-            <p class="card-label">Histórico</p>
-            <div id="crawler-history-list" class="crawler-history-list"></div>
-          </div>
-        </div>
-
-        <button id="btn-back-crawler" class="btn-ghost">← Voltar ao painel</button>
-      </div>
+  <div id="screen-crawler" class="screen hidden">
+    <div class="header header-admin">
+      <div class="logo">🕷️</div>
+      <h1>Crawler do Site</h1>
+      <p class="subtitle" id="crawler-site-label">—</p>
     </div>
+    <div class="container">
+
+      <!-- Configuração -->
+      <div id="crawler-config-section">
+        <div class="card">
+          <p class="card-label">Domínio base</p>
+          <div class="crawler-url-display" id="crawler-base-url-display">—</div>
+          <p style="font-size:11px;color:var(--text-2);margin-top:8px;line-height:1.6">
+            Varre todas as páginas do domínio seguindo links recursivamente.
+            Páginas com URL do mesmo padrão (ex: <code>/produto/123</code>,
+            <code>/produto/456</code>) são mapeadas mas apenas uma é varrida em detalhe.
+          </p>
+        </div>
+        <div class="card">
+          <p class="card-label">Caminho do Chrome <span style="font-weight:400;text-transform:none">(opcional)</span></p>
+          <div class="field" style="margin-bottom:0">
+            <input type="text" id="crawler-chrome-path"
+              placeholder="Ex: C:\Program Files\Google\Chrome\Application\chrome.exe" />
+          </div>
+          <p style="font-size:10px;color:var(--text-3);margin-top:5px">Deixe em branco para usar o caminho padrão.</p>
+        </div>
+        <button id="btn-start-crawler" class="btn-crawler-start">🕷️ Iniciar crawler</button>
+        <div id="crawler-start-error" class="error-msg hidden"></div>
+      </div>
+
+      <!-- Progresso em tempo real -->
+      <div id="crawler-running-section" class="hidden">
+        <div class="card crawler-status-card">
+          <div class="crawler-status-header">
+            <div class="crawler-pulse" id="crawler-pulse"></div>
+            <span id="crawler-status-label">Iniciando...</span>
+          </div>
+          <div class="crawler-counters">
+            <div class="crawler-counter">
+              <span class="crawler-counter-val" id="c-crawled">0</span>
+              <span class="crawler-counter-lbl">varridas</span>
+            </div>
+            <div class="crawler-counter">
+              <span class="crawler-counter-val" id="c-skipped" style="color:#f59e0b">0</span>
+              <span class="crawler-counter-lbl">puladas</span>
+            </div>
+            <div class="crawler-counter">
+              <span class="crawler-counter-val" id="c-found">0</span>
+              <span class="crawler-counter-lbl">encontradas</span>
+            </div>
+            <div class="crawler-counter">
+              <span class="crawler-counter-val" id="c-pending">0</span>
+              <span class="crawler-counter-lbl">pendentes</span>
+            </div>
+            <div class="crawler-counter">
+              <span class="crawler-counter-val" id="c-errors">0</span>
+              <span class="crawler-counter-lbl">erros</span>
+            </div>
+          </div>
+          <div class="crawler-progress-bar-track">
+            <div class="crawler-progress-bar-fill" id="crawler-progress-fill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <!-- Padrões detectados (aparece durante a varredura) -->
+        <div id="crawler-patterns-section" class="card hidden">
+          <p class="card-label">Padrões de URL detectados</p>
+          <p style="font-size:11px;color:var(--text-2);margin-bottom:8px">
+            URLs com mesmo padrão são mapeadas mas apenas uma é varrida em detalhe.
+          </p>
+          <div id="crawler-patterns-list" class="crawler-patterns-list"></div>
+        </div>
+
+        <button id="btn-stop-crawler" class="btn-danger">⏹ Parar crawler</button>
+      </div>
+
+      <!-- Resultado final -->
+      <div id="crawler-done-section" class="hidden">
+        <div class="card crawler-done-card">
+          <div style="font-size:32px;text-align:center;margin-bottom:8px" id="crawler-done-icon">✅</div>
+          <p class="crawler-done-title" id="crawler-done-title">Crawler concluído!</p>
+          <div class="crawler-counters" style="margin-top:12px">
+            <div class="crawler-counter">
+              <span class="crawler-counter-val" id="cd-crawled">0</span>
+              <span class="crawler-counter-lbl">varridas</span>
+            </div>
+            <div class="crawler-counter">
+              <span class="crawler-counter-val" id="cd-skipped" style="color:#f59e0b">0</span>
+              <span class="crawler-counter-lbl">puladas</span>
+            </div>
+            <div class="crawler-counter">
+              <span class="crawler-counter-val" id="cd-found">0</span>
+              <span class="crawler-counter-lbl">encontradas</span>
+            </div>
+            <div class="crawler-counter">
+              <span class="crawler-counter-val" id="cd-errors">0</span>
+              <span class="crawler-counter-lbl">erros</span>
+            </div>
+          </div>
+        </div>
+        <button id="btn-new-crawler" class="btn-primary">Novo crawler</button>
+      </div>
+
+      <!-- Histórico -->
+      <div class="card" style="margin-top:10px">
+        <p class="card-label" style="margin-bottom:6px">Sessões anteriores</p>
+        <button id="btn-crawler-history" class="btn-secondary" style="width:100%">Ver histórico</button>
+      </div>
+      <div id="crawler-history-section" class="hidden">
+        <div class="card">
+          <p class="card-label">Histórico</p>
+          <div id="crawler-history-list" class="crawler-history-list"></div>
+        </div>
+      </div>
+
+      <button id="btn-back-crawler" class="btn-ghost">← Voltar ao painel</button>
+    </div>
+  </div>
 
     <!-- Scripts por responsabilidade -->
     <script src="scripts/main.js"></script>

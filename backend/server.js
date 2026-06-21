@@ -16,6 +16,7 @@ const taskResultRoutes  = require('./src/routes/taskResults');
 const researcherRoutes  = require('./src/routes/researchers');
 const snapshotRoutes   = require('./src/routes/snapshots');
 const crawlerRoutes    = require('./src/routes/crawler');
+const metricsRoutes    = require('./src/routes/metrics');
 
 const app = express();
 
@@ -83,6 +84,7 @@ app.use('/task-results',  taskResultRoutes);
 app.use('/researchers',   researcherRoutes);
 app.use('/snapshots',    snapshotRoutes);
 app.use('/crawler',      crawlerRoutes);
+app.use('/metrics',      metricsRoutes);
 
 // ============================================================
 // ROTA NÃO ENCONTRADA

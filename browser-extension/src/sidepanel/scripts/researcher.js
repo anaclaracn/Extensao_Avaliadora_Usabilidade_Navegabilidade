@@ -81,14 +81,30 @@ function bindAdmin(){
     } catch(err){ showFeedback('test-feedback',`Erro: ${err.message}`,true); }
   });
 
-  $('btn-add-task').addEventListener('click',async()=>{
-    const desc=getText('task-description');
-    if(!desc)           return showFeedback('task-feedback','Digite a descrição.',true);
-    if(!S.activeTestId) return showFeedback('task-feedback','Crie um teste primeiro.',true);
+  $('btn-add-task').addEventListener('click', async () => {
+    const desc = getText('task-description');
+    if (!desc)           return showFeedback('task-feedback', 'Digite a descrição.', true);
+    if (!S.activeTestId) return showFeedback('task-feedback', 'Crie um teste primeiro.', true);
+
+    const minClicks   = parseInt($('task-min-clicks').value)   || null;
+    const optimalPath = parseInt($('task-optimal-path').value) || null;
+
     try {
-      const res=await api('POST','/tasks',{test_id:S.activeTestId,description:desc});
-      S.tasks.push(res.data); $('task-description').value=''; renderAdminTasks(); showFeedback('task-feedback','✓ Tarefa adicionada!');
-    } catch(err){ showFeedback('task-feedback',`Erro: ${err.message}`,true); }
+      const res = await api('POST', '/tasks', {
+        test_id:     S.activeTestId,
+        description: desc,
+        min_clicks:           minClicks,
+        optimal_path_length:  optimalPath,
+      });
+      S.tasks.push(res.data);
+      $('task-description').value = '';
+      $('task-min-clicks').value = '';
+      $('task-optimal-path').value = '';
+      renderAdminTasks();
+      showFeedback('task-feedback', '✓ Tarefa adicionada!');
+    } catch(err) {
+      showFeedback('task-feedback', `Erro: ${err.message}`, true);
+    }
   });
 
   $('task-description').addEventListener('keydown',e=>{ if(e.key==='Enter') $('btn-add-task').click(); });
