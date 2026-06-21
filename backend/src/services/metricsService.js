@@ -222,17 +222,18 @@ class MetricsService {
 
   /**
    * 3.1 — Índice de Desorientação (Lostness Score)
-   * Fórmula de Smith (1996), validada por Gwizdka & Spence (2007):
+   * Fórmula de Smith (1996):
    *   L = √( (R/S - 1)² + (N/S - 1)² )
-   *   R = caminho ótimo (tasks.optimal_path_length, definido pelo pesquisador)
+   *   R = caminho ótimo (tasks.optimal_path_length)
    *   S = páginas ÚNICAS visitadas durante a tarefa
    *   N = páginas TOTAIS visitadas (com repetição)
    *
-   * L > 0.4 indica que o usuário esteve "perdido" durante a tarefa.
-   * L próximo de 0 indica navegação direta e eficiente.
+   * IMPORTANTE: só é matematicamente significativo quando a tarefa
+   * envolve navegação entre PÁGINAS DISTINTAS. Tarefas de página
+   * única (ex: preencher um formulário) não têm "lostness" --
+   * são marcadas explicitamente como não aplicáveis.
    */
   static async lostnessScore(testId) {
-    // Buscar todas as tentativas de tarefas deste teste com sessão associada
     const attempts = await db.query(
       `SELECT tr.id, tr.task_id, tr.session_id, tr.started_at, tr.finished_at,
               t.description, t.optimal_path_length
@@ -245,7 +246,26 @@ class MetricsService {
     const byTask = {};
 
     for (const attempt of attempts.rows) {
-      if (!attempt.optimal_path_length) continue; // sem R definido, não calculável
+      const R = attempt.optimal_path_length;
+
+      // Sem R definido → não calculável
+      if (!R) continue;
+
+      // R = 1 significa que a tarefa não envolve navegação entre páginas
+      // (ex: preencher um formulário em uma única tela). Lostness não
+      // se aplica nesse caso -- marcar como not_applicable.
+      if (R <= 1) {
+        if (!byTask[attempt.task_id]) {
+          byTask[attempt.task_id] = {
+            task_id: attempt.task_id,
+            description: attempt.description,
+            optimal_path_length: R,
+            not_applicable: true,
+            scores: [],
+          };
+        }
+        continue;
+      }
 
       const urls = await MetricsService._getNavigationSequence(
         attempt.session_id, attempt.started_at, attempt.finished_at
@@ -253,9 +273,14 @@ class MetricsService {
 
       const N = urls.length;
       const S = new Set(urls).size;
-      const R = attempt.optimal_path_length;
 
-      if (S === 0) continue; // sem navegação registrada
+      // Proteção: S muito pequeno em relação a R causa explosão
+      // matemática da fórmula (divisão por número pequeno).
+      // Lostness exige pelo menos 2 páginas únicas visitadas para
+      // ter sentido -- caso contrário, a tarefa não teve navegação
+      // real registrada (provavelmente o evento não tinha 'url'
+      // populado corretamente, ou a tarefa de fato não navegou).
+      if (S < 2) continue;
 
       const term1 = (R / S) - 1;
       const term2 = (N / S) - 1;
@@ -266,6 +291,7 @@ class MetricsService {
           task_id: attempt.task_id,
           description: attempt.description,
           optimal_path_length: R,
+          not_applicable: false,
           scores: [],
         };
       }
@@ -273,6 +299,20 @@ class MetricsService {
     }
 
     return Object.values(byTask).map(t => {
+      if (t.not_applicable || t.scores.length === 0) {
+        return {
+          task_id: t.task_id,
+          description: t.description,
+          optimal_path_length: t.optimal_path_length,
+          sample_size: 0,
+          avg_lostness_score: null,
+          pct_users_lost: null,
+          interpretation: t.not_applicable
+            ? 'Não aplicável — tarefa de página única (optimal_path_length ≤ 1)'
+            : 'Sem navegação entre páginas suficiente para calcular',
+        };
+      }
+
       const avg = t.scores.reduce((a, b) => a + b, 0) / t.scores.length;
       const lostCount = t.scores.filter(s => s > 0.4).length;
       return {
@@ -344,30 +384,61 @@ class MetricsService {
   }
 
   /**
-   * 3.3 — Profundidade de Clique até o Objetivo (Click Depth)
-   * Número de cliques (eventos tipo 'click') registrados até o momento
-   * de conclusão da tarefa. Aproximação prática da "distância" percorrida.
+   * 3.3 — Profundidade de Navegação (Page Depth)
+   * CORRIGIDO: agora conta PÁGINAS ÚNICAS visitadas durante a tarefa
+   * (o mesmo "S" usado no Lostness Score), não cliques brutos.
+   *
+   * Cliques já são cobertos pela métrica de Eficiência de Cliques
+   * (clickEfficiency) -- esta métrica mede uma coisa diferente:
+   * quantas TELAS/PÁGINAS distintas o usuário precisou visitar.
+   *
+   * Para tarefas de página única, o valor esperado é 1 (a própria
+   * página onde a tarefa ocorre) -- isso é normal e correto.
    */
-  static async clickDepth(testId) {
-    const result = await db.query(
-      `SELECT
-         t.id AS task_id, t.description,
-         ROUND(AVG(tr.clicks)::numeric, 2)  AS avg_click_depth,
-         MIN(tr.clicks)                     AS min_click_depth,
-         MAX(tr.clicks)                     AS max_click_depth,
-         -- Regra dos 3 cliques: % de tentativas que ficaram dentro do limite
-         ROUND(
-           100.0 * SUM(CASE WHEN tr.clicks <= 3 THEN 1 ELSE 0 END) / NULLIF(COUNT(tr.id), 0),
-           2
-         ) AS pct_within_3_clicks
-       FROM tasks t
-       LEFT JOIN task_results tr ON tr.task_id = t.id
-       WHERE t.test_id = $1
-       GROUP BY t.id, t.description
-       ORDER BY t.order_index ASC NULLS LAST, t.id ASC`,
+  static async pageDepth(testId) {
+    const attempts = await db.query(
+      `SELECT tr.id, tr.task_id, tr.session_id, tr.started_at, tr.finished_at,
+              t.description
+       FROM task_results tr
+       JOIN tasks t ON t.id = tr.task_id
+       WHERE t.test_id = $1`,
       [testId]
     );
-    return result.rows;
+
+    const byTask = {};
+
+    for (const attempt of attempts.rows) {
+      const urls = await MetricsService._getNavigationSequence(
+        attempt.session_id, attempt.started_at, attempt.finished_at
+      );
+
+      // Páginas únicas visitadas. Se não há eventos com URL registrada,
+      // assume-se 1 (a página onde a tarefa ocorreu).
+      const uniquePages = new Set(urls).size || 1;
+
+      if (!byTask[attempt.task_id]) {
+        byTask[attempt.task_id] = {
+          task_id: attempt.task_id,
+          description: attempt.description,
+          depths: [],
+        };
+      }
+      byTask[attempt.task_id].depths.push(uniquePages);
+    }
+
+    return Object.values(byTask).map(t => {
+      const avg = t.depths.reduce((a, b) => a + b, 0) / t.depths.length;
+      const within3 = t.depths.filter(d => d <= 3).length;
+      return {
+        task_id: t.task_id,
+        description: t.description,
+        sample_size: t.depths.length,
+        avg_page_depth: Math.round(avg * 100) / 100,
+        min_page_depth: Math.min(...t.depths),
+        max_page_depth: Math.max(...t.depths),
+        pct_within_3_pages: Math.round((within3 / t.depths.length) * 10000) / 100,
+      };
+    });
   }
 
   /**
@@ -606,7 +677,7 @@ class MetricsService {
     const [
       completionRate, errorRate, abandonment,
       timeOnTask, clickEfficiency, successPerMinute,
-      lostness, backtrack, clickDepth,
+      lostness, backtrack, pageDepth,
     ] = await Promise.all([
       MetricsService.taskCompletionRate(testId),
       MetricsService.errorRate(testId),
@@ -616,13 +687,13 @@ class MetricsService {
       MetricsService.successPerMinute(testId),
       MetricsService.lostnessScore(testId),
       MetricsService.backtrackRate(testId),
-      MetricsService.clickDepth(testId),
+      MetricsService.pageDepth(testId),
     ]);
 
     return {
       effectiveness: { completionRate, errorRate, abandonment },
       efficiency:    { timeOnTask, clickEfficiency, successPerMinute },
-      navigability:  { lostness, backtrack, clickDepth },
+      navigability:  { lostness, backtrack, pageDepth },
     };
   }
 

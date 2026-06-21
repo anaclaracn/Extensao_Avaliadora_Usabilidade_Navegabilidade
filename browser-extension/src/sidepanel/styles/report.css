@@ -1,11 +1,35 @@
 /* ============================================================
-   REPORT.CSS — Tela de relatório de desempenho
-   ARQUIVO NOVO — salvar em:
+   REPORT.CSS — Tela de relatório de desempenho (v2)
+   SUBSTITUIR o arquivo existente em:
    browser-extension/src/sidepanel/styles/report.css
    ============================================================ */
 
-/* ── Cards de tarefa (resumo agregado) ───────────────────────── */
-.report-aggregate-list { display: flex; flex-direction: column; gap: 8px; }
+/* ── Botão "Relatório" na lista de testes ────────────────────── */
+.test-item-actions {
+  display: flex; gap: 6px; align-items: center;
+}
+
+.btn-view-report {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #1a56db, #7c3aed);
+  color: white; border: none; border-radius: 7px;
+  font-size: 11px; font-weight: 700; font-family: var(--sans);
+  cursor: pointer; white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(26, 86, 219, 0.3);
+  transition: transform .15s, box-shadow .15s, opacity .15s;
+}
+.btn-view-report:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(26, 86, 219, 0.4);
+}
+.btn-view-report:active {
+  transform: translateY(0);
+  opacity: .9;
+}
+
+/* ── Listas de dimensão (eficácia, eficiência, navegabilidade) ── */
+.report-dimension-list { display: flex; flex-direction: column; gap: 8px; }
 
 .report-task-card {
   background: var(--bg); border: 1px solid var(--border);
@@ -22,10 +46,46 @@
 }
 .report-metric { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .report-metric-val {
-  font-family: var(--mono); font-size: 15px; font-weight: 500; color: var(--primary);
+  font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--primary);
 }
 .report-metric-lbl {
-  font-size: 9px; color: var(--text-2); text-transform: uppercase; letter-spacing: .3px;
+  font-size: 8.5px; color: var(--text-2); text-transform: uppercase;
+  letter-spacing: .3px; text-align: center; line-height: 1.3;
+}
+
+/* ── Notas explicativas ──────────────────────────────────────── */
+.report-note {
+  font-size: 10px; color: var(--text-3); line-height: 1.5;
+  margin-top: 4px; padding: 0 2px;
+}
+
+/* ── Dimensão 4 — Estrutura do site (grid 2x2) ──────────────────*/
+.report-structure-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px;
+}
+.report-struct-box {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 8px; text-align: center;
+}
+.report-struct-val {
+  display: block; font-family: var(--mono); font-size: 20px;
+  font-weight: 500; color: var(--admin);
+}
+.report-struct-lbl {
+  display: block; font-size: 9px; color: var(--text-2);
+  text-transform: uppercase; letter-spacing: .3px; margin-top: 3px;
+}
+
+.report-contrast-failures {
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+}
+.report-fail-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 8px; background: #fef2f2; border-radius: 6px;
+  margin-bottom: 4px; font-size: 11px; color: var(--text);
+}
+.report-fail-ratio {
+  font-family: var(--mono); font-size: 10px; color: var(--danger); font-weight: 700;
 }
 
 /* ── Cards de participante ───────────────────────────────────── */

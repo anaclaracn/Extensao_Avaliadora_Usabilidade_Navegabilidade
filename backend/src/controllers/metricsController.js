@@ -63,9 +63,9 @@ class MetricsController {
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
   }
 
-  static async clickDepth(req, res) {
+  static async pageDepth(req, res) {
     try {
-      const data = await MetricsService.clickDepth(req.params.testId);
+      const data = await MetricsService.pageDepth(req.params.testId);
       res.json({ success: true, data });
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
   }
