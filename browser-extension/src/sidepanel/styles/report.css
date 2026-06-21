@@ -1,0 +1,73 @@
+/* ============================================================
+   REPORT.CSS — Tela de relatório de desempenho
+   ARQUIVO NOVO — salvar em:
+   browser-extension/src/sidepanel/styles/report.css
+   ============================================================ */
+
+/* ── Cards de tarefa (resumo agregado) ───────────────────────── */
+.report-aggregate-list { display: flex; flex-direction: column; gap: 8px; }
+
+.report-task-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px;
+}
+.report-task-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.report-task-num  { font-family: var(--mono); font-size: 10px; color: var(--text-3); }
+.report-task-desc { flex: 1; font-size: 12px; font-weight: 600; color: var(--text); }
+
+.report-metric-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+}
+.report-metric { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.report-metric-val {
+  font-family: var(--mono); font-size: 15px; font-weight: 500; color: var(--primary);
+}
+.report-metric-lbl {
+  font-size: 9px; color: var(--text-2); text-transform: uppercase; letter-spacing: .3px;
+}
+
+/* ── Cards de participante ───────────────────────────────────── */
+.report-participants-list { display: flex; flex-direction: column; gap: 6px; }
+
+.report-participant-card {
+  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+}
+
+.report-participant-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 12px; background: var(--bg); cursor: pointer;
+  transition: background .12s;
+}
+.report-participant-header:hover { background: #eff6ff; }
+
+.report-participant-info { display: flex; flex-direction: column; gap: 1px; }
+.report-participant-id   { font-size: 12px; font-weight: 600; color: var(--text); }
+.report-participant-demo { font-size: 10px; color: var(--text-2); font-family: var(--mono); }
+
+.report-participant-summary { display: flex; align-items: center; gap: 8px; }
+
+.report-pill {
+  font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 10px;
+}
+.report-pill.pill-success { background: #dcfce7; color: var(--success); }
+.report-pill.pill-partial { background: #fef3c7; color: #92400e; }
+
+.report-expand-arrow {
+  font-size: 13px; color: var(--text-3); transition: transform .2s;
+}
+.report-expand-arrow.open { transform: rotate(90deg); }
+
+/* ── Detalhe expansível por tarefa ────────────────────────────── */
+.report-participant-detail {
+  background: white; border-top: 1px solid var(--border);
+}
+.report-detail-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 12px; border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+.report-detail-row:last-child { border-bottom: none; }
+.report-detail-task { flex: 1; color: var(--text); }
+.report-detail-stat  { color: var(--text-2); font-family: var(--mono); white-space: nowrap; }

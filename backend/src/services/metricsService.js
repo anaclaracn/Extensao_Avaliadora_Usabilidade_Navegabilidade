@@ -639,6 +639,66 @@ class MetricsService {
 
     return { density, links, contrast, altCoverage };
   }
+
+  /**
+   * Relatório individual por participante de um teste.
+   * Retorna uma linha por (sessão, tarefa) com as métricas brutas,
+   * permitindo ao pesquisador ver o desempenho de cada pessoa.
+   */
+  static async participantBreakdown(testId) {
+    const result = await db.query(
+      `SELECT
+         tr.id                AS result_id,
+         tr.session_id,
+         u.id                 AS user_id,
+         u.age, u.gender, u.education_level,
+         t.id                 AS task_id,
+         t.description        AS task_description,
+         t.order_index,
+         tr.started_at,
+         tr.finished_at,
+         EXTRACT(EPOCH FROM (tr.finished_at - tr.started_at)) AS duration_seconds,
+         tr.clicks,
+         tr.success
+       FROM task_results tr
+       JOIN tasks t     ON t.id = tr.task_id
+       JOIN sessions s  ON s.id = tr.session_id
+       JOIN users u     ON u.id = s.user_id
+       WHERE t.test_id = $1
+       ORDER BY tr.session_id ASC, t.order_index ASC`,
+      [testId]
+    );
+
+    // Agrupar por sessão (= por participante) para facilitar o consumo no front
+    const bySession = {};
+    for (const row of result.rows) {
+      if (!bySession[row.session_id]) {
+        bySession[row.session_id] = {
+          session_id: row.session_id,
+          user: {
+            id: row.user_id,
+            age: row.age,
+            gender: row.gender,
+            education_level: row.education_level,
+          },
+          tasks: [],
+        };
+      }
+      bySession[row.session_id].tasks.push({
+        result_id:        row.result_id,
+        task_id:          row.task_id,
+        description:      row.task_description,
+        order_index:      row.order_index,
+        started_at:       row.started_at,
+        finished_at:      row.finished_at,
+        duration_seconds: row.duration_seconds != null ? Math.round(row.duration_seconds) : null,
+        clicks:           row.clicks,
+        success:          row.success,
+      });
+    }
+
+    return Object.values(bySession);
+  }
 }
 
 module.exports = MetricsService;

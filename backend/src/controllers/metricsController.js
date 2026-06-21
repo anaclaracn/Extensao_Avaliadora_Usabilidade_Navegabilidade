@@ -131,6 +131,13 @@ class MetricsController {
       res.json({ success: true, data });
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
   }
+
+  static async participantBreakdown(req, res) {
+    try {
+      const data = await MetricsService.participantBreakdown(req.params.testId);
+      res.json({ success: true, count: data.length, data });
+    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  }
 }
 
 module.exports = MetricsController;

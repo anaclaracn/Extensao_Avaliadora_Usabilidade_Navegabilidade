@@ -18,6 +18,7 @@ router.get('/test/:testId/success-per-minute',MetricsController.successPerMinute
 router.get('/test/:testId/lostness',    MetricsController.lostness);
 router.get('/test/:testId/backtrack',   MetricsController.backtrack);
 router.get('/test/:testId/click-depth', MetricsController.clickDepth);
+router.get('/test/:testId/participant-breakdown', MetricsController.participantBreakdown);
 
 // Estas duas usam o site inteiro (cruzam eventos de todas as sessões do site)
 router.get('/site/:siteId/non-interactive-clicks', MetricsController.nonInteractiveClicks);

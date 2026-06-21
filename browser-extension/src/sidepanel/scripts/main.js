@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     showScreen('identify');
   }
 
-  bindIdentify(); bindPickTest(); bindSession(); bindResults(); bindAdmin(); bindScanner(); bindCrawler();
+  bindIdentify(); bindPickTest(); bindSession(); bindResults(); bindAdmin(); bindScanner(); bindCrawler(); bindReport();
 
   chrome.runtime.onMessage.addListener((req)=>{ if(req.action==='eventLogged') updateSessionStats(); });
   chrome.tabs.onActivated.addListener(async(info)=>{ const t=await chrome.tabs.get(info.tabId); if(t?.url) S.currentSiteUrl=t.url; });

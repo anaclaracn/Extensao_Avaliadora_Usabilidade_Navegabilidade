@@ -49,8 +49,36 @@ async function loadAdminTests(){
     list.innerHTML='';
     tests.forEach(t=>{
       const el=document.createElement('div'); el.className='test-item';
-      el.innerHTML=`<span class="test-item-icon">📋</span><div class="test-item-info"><div class="test-item-name">${t.name}</div><div class="test-item-meta">id #${t.id}</div></div><button class="btn-start-task" style="font-size:10px" data-id="${t.id}" data-name="${t.name}">Editar tarefas</button>`;
-      el.querySelector('button').addEventListener('click',(e)=>{ e.stopPropagation(); S.activeTestId=parseInt(e.target.dataset.id); S.activeTestName=e.target.dataset.name; $('tasks-test-badge').textContent=S.activeTestName; show('tasks-section'); loadAdminTasks(); });
+      el.innerHTML=`
+        <span class="test-item-icon">📋</span>
+        <div class="test-item-info">
+          <div class="test-item-name">${t.name}</div>
+          <div class="test-item-meta">id #${t.id}</div>
+        </div>
+        <div class="test-item-actions">
+          <button class="btn-start-task" style="font-size:10px" data-id="${t.id}" data-name="${t.name}">Editar tarefas</button>
+          <button class="btn-view-report" style="font-size:10px" data-id="${t.id}" data-name="${t.name}">📊 Relatório</button>
+        </div>
+      `;
+
+      // Botão "Editar tarefas" — comportamento original mantido
+      el.querySelector('.btn-start-task').addEventListener('click',(e)=>{
+        e.stopPropagation();
+        S.activeTestId=parseInt(e.target.dataset.id);
+        S.activeTestName=e.target.dataset.name;
+        $('tasks-test-badge').textContent=S.activeTestName;
+        show('tasks-section');
+        loadAdminTasks();
+      });
+
+      // Botão "Relatório" — novo, abre a tela de métricas do teste
+      el.querySelector('.btn-view-report').addEventListener('click',(e)=>{
+        e.stopPropagation();
+        const testId   = e.target.dataset.id;
+        const testName = e.target.dataset.name;
+        enterReportScreen(testId, testName);
+      });
+
       list.appendChild(el);
     });
   } catch(err){ list.innerHTML=`<p class="empty-state" style="color:#dc2626">Erro: ${err.message}</p>`; }
