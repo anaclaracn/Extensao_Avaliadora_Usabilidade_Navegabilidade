@@ -94,11 +94,25 @@ async function finishTask(success){
   });
 }
 
-async function endSession(){
-  if(!confirm('Encerrar a sessão e ver os resultados?')) return;
-  if(S.activeTaskIdx!==null) await finishTask(false);
-  clearInterval(S.taskTimerInt); clearInterval(S.statsInt);
-  if(S.sessionId){ try{ await api('PATCH',`/sessions/${S.sessionId}/end`,{}); }catch(_){} }
+async function endSession() {
+  const confirmed = await showConfirmModal({
+    icon: '🏁',
+    title: 'Encerrar sessão?',
+    message: 'Você verá os resultados da sessão a seguir. Essa ação não pode ser desfeita.',
+    confirmText: 'Encerrar sessão',
+    cancelText: 'Continuar testando',
+  });
+  if (!confirmed) return;
+
+  if (S.activeTaskIdx !== null) await finishTask(false);
+
+  clearInterval(S.taskTimerInt);
+  clearInterval(S.statsInt);
+
+  if (S.sessionId) {
+    try { await api('PATCH', `/sessions/${S.sessionId}/end`, {}); } catch(_) {}
+  }
+
   showResults();
 }
 

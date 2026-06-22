@@ -19,13 +19,6 @@ class MetricsController {
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
   }
 
-  static async abandonmentRate(req, res) {
-    try {
-      const data = await MetricsService.abandonmentRate(req.params.testId);
-      res.json({ success: true, data });
-    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
-  }
-
   // ── Eficiência ────────────────────────────────────────────────
   static async timeOnTask(req, res) {
     try {
@@ -37,13 +30,6 @@ class MetricsController {
   static async clickEfficiency(req, res) {
     try {
       const data = await MetricsService.clickEfficiency(req.params.testId);
-      res.json({ success: true, data });
-    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
-  }
-
-  static async successPerMinute(req, res) {
-    try {
-      const data = await MetricsService.successPerMinute(req.params.testId);
       res.json({ success: true, data });
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
   }

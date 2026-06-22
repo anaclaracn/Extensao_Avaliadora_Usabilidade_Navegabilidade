@@ -50,7 +50,7 @@ async function loadEffectivenessAndEfficiency(testId) {
     const data = res.data;
 
     renderEffectiveness(data.effectiveness);
-    renderEfficiency(data.efficiency, data.navigability?.lostness || []);
+    renderEfficiency(data.efficiency);
 
   } catch (err) {
     $('report-effectiveness-list').innerHTML = errBoxReport(err.message);
@@ -59,53 +59,51 @@ async function loadEffectivenessAndEfficiency(testId) {
 }
 
 function renderEffectiveness(eff) {
-  const completion   = eff?.completionRate   || [];
-  const errorRate     = eff?.errorRate        || [];
-  const abandonment    = eff?.abandonment      || [];
+  const completion = eff?.completionRate || [];
+  const errorRate    = eff?.errorRate      || [];
 
-  const errByTask = {};  errorRate.forEach(t => { errByTask[t.id] = t; });
-  const abByTask  = {};  abandonment.forEach(t => { abByTask[t.id] = t; });
+  const errByTask = {}; errorRate.forEach(t => { errByTask[t.id] = t; });
 
   const list = $('report-effectiveness-list');
   list.innerHTML = '';
 
-  if (!completion.length) { list.innerHTML = '<p class="empty-state">Nenhum resultado registrado ainda.</p>'; return; }
+  if (!completion.length) {
+    list.innerHTML = '<p class="empty-state">Nenhum resultado registrado ainda.</p>';
+    return;
+  }
 
   completion.forEach((task, i) => {
     const er = errByTask[task.id] || {};
-    const ab = abByTask[task.id]  || {};
 
     list.appendChild(metricCardReport(i, task.description, [
       { val: fmtPctReport(task.completion_rate_pct), lbl: 'conclusão' },
       { val: task.total_attempts ?? 0,                lbl: 'tentativas' },
       { val: fmtPctReport(er.error_rate_pct),         lbl: 'taxa de erro' },
-      { val: fmtPctReport(ab.abandonment_rate_pct),   lbl: 'abandono' },
     ]));
   });
 }
 
-function renderEfficiency(eff, lostness) {
-  const time   = eff?.timeOnTask       || [];
-  const clicks  = eff?.clickEfficiency   || [];
-  const spm    = eff?.successPerMinute  || [];
+function renderEfficiency(eff) {
+  const time   = eff?.timeOnTask      || [];
+  const clicks  = eff?.clickEfficiency  || [];
 
   const clicksByTask = {}; clicks.forEach(t => { clicksByTask[t.id] = t; });
-  const spmByTask    = {}; spm.forEach(t => { spmByTask[t.id] = t; });
 
   const list = $('report-efficiency-list');
   list.innerHTML = '';
 
-  if (!time.length) { list.innerHTML = '<p class="empty-state">Nenhum resultado registrado ainda.</p>'; return; }
+  if (!time.length) {
+    list.innerHTML = '<p class="empty-state">Nenhum resultado registrado ainda.</p>';
+    return;
+  }
 
   time.forEach((task, i) => {
     const ce = clicksByTask[task.id] || {};
-    const sp = spmByTask[task.id]    || {};
 
     list.appendChild(metricCardReport(i, task.description, [
       { val: task.avg_duration_seconds != null ? fmtSecReport(task.avg_duration_seconds) : '—', lbl: 'tempo médio' },
       { val: task.median_duration_seconds != null ? fmtSecReport(task.median_duration_seconds) : '—', lbl: 'mediana' },
       { val: ce.click_efficiency_ratio ?? '—', lbl: 'eficiência cliques' },
-      { val: sp.success_per_minute ?? '—', lbl: 'sucesso/min' },
     ]));
   });
 }

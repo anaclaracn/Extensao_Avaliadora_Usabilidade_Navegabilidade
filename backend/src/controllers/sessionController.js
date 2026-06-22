@@ -2,6 +2,7 @@
 // A criação do site (se necessário) é feita automaticamente pelo service
 
 const SessionService = require('../services/sessionService');
+const TaskResultService = require('../services/taskResultService');
 
 class SessionController {
   /**
@@ -45,22 +46,29 @@ class SessionController {
    * PATCH /sessions/:id/end
    * Marca o encerramento de uma sessão
    */
-  static async endSession(req, res) {
-    try {
-      const session = await SessionService.endSession(req.params.id);
-      if (!session) {
-        return res.status(404).json({ success: false, error: 'Sessão não encontrada' });
+    static async endSession(req, res) {
+      try {
+        const session = await SessionService.endSession(req.params.id);
+        if (!session) {
+          return res.status(404).json({ success: false, error: 'Sessão não encontrada' });
+        }
+
+        const abandonedCount = await TaskResultService.markStaleAttemptsAsAbandoned(0, req.params.id);
+        if (abandonedCount > 0) {
+          console.log(`⚠️  ${abandonedCount} tentativa(s) da sessão #${req.params.id} marcada(s) como abandonada(s)`);
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: 'Sessão encerrada',
+          data:    session,
+          abandoned_attempts: abandonedCount,
+        });
+      } catch (error) {
+        console.error('❌ Erro ao encerrar sessão:', error);
+        return res.status(500).json({ success: false, error: error.message });
       }
-      return res.status(200).json({
-        success: true,
-        message: 'Sessão encerrada',
-        data:    session,
-      });
-    } catch (error) {
-      console.error('❌ Erro ao encerrar sessão:', error);
-      return res.status(500).json({ success: false, error: error.message });
     }
-  }
 
   /**
    * GET /sessions/:id

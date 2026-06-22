@@ -66,32 +66,6 @@ class MetricsService {
     return result.rows;
   }
 
-  /**
-   * 1.3 — Taxa de Abandono de Tarefa
-   * Tarefas iniciadas mas nunca concluídas com sucesso
-   * (aqui contabilizamos task_results com success=false como abandono,
-   *  já que o fluxo da extensão só grava resultado ao finalizar/desistir)
-   */
-  static async abandonmentRate(testId) {
-    const result = await db.query(
-      `SELECT
-         t.id, t.description,
-         COUNT(tr.id)                                     AS total_attempts,
-         SUM(CASE WHEN NOT tr.success THEN 1 ELSE 0 END)  AS total_abandoned,
-         ROUND(
-           100.0 * SUM(CASE WHEN NOT tr.success THEN 1 ELSE 0 END) / NULLIF(COUNT(tr.id), 0),
-           2
-         )                                                 AS abandonment_rate_pct
-       FROM tasks t
-       LEFT JOIN task_results tr ON tr.task_id = t.id
-       WHERE t.test_id = $1
-       GROUP BY t.id, t.description
-       ORDER BY abandonment_rate_pct DESC NULLS LAST`,
-      [testId]
-    );
-    return result.rows;
-  }
-
   // ════════════════════════════════════════════════════════════
   // DIMENSÃO 2 — EFICIÊNCIA (Efficiency)
   // ════════════════════════════════════════════════════════════
@@ -163,48 +137,20 @@ class MetricsService {
     return result.rows;
   }
 
-  /**
-   * 2.3 — Taxa de Sucesso por Unidade de Tempo
-   * Eficiência composta = TCR(%) / tempo médio em minutos
-   * Referência: Common Industry Format (ISO 9241-11)
-   * Permite comparar diferentes versões/testes de um mesmo site
-   */
-  static async successPerMinute(testId) {
-    const result = await db.query(
-      `SELECT
-         t.id, t.description,
-         ROUND(
-           100.0 * SUM(CASE WHEN tr.success THEN 1 ELSE 0 END) / NULLIF(COUNT(tr.id), 0),
-           2
-         ) AS completion_rate_pct,
-         ROUND(AVG(EXTRACT(EPOCH FROM (tr.finished_at - tr.started_at))) / 60.0, 3)
-           AS avg_duration_minutes,
-         CASE
-           WHEN AVG(EXTRACT(EPOCH FROM (tr.finished_at - tr.started_at))) > 0
-           THEN ROUND(
-             (100.0 * SUM(CASE WHEN tr.success THEN 1 ELSE 0 END) / NULLIF(COUNT(tr.id), 0))
-             / (AVG(EXTRACT(EPOCH FROM (tr.finished_at - tr.started_at))) / 60.0),
-             2
-           )
-           ELSE NULL
-         END AS success_per_minute
-       FROM tasks t
-       LEFT JOIN task_results tr ON tr.task_id = t.id
-       WHERE t.test_id = $1
-       GROUP BY t.id, t.description
-       ORDER BY t.order_index ASC NULLS LAST, t.id ASC`,
-      [testId]
-    );
-    return result.rows;
-  }
-
   // ════════════════════════════════════════════════════════════
   // DIMENSÃO 3 — ORIENTAÇÃO / NAVEGABILIDADE
   // ════════════════════════════════════════════════════════════
 
   /**
-   * Helper interno: busca a sequência de URLs visitadas (eventos)
-   * dentro da janela de tempo de uma tarefa específica
+   * Busca a sequência de URLs visitadas durante uma tarefa,
+   * colapsando eventos consecutivos na MESMA URL em uma única
+   * entrada (representa "uma visita à página", não "um evento").
+   *
+   * Exemplo:
+   *   eventos brutos: [A, A, A, B, B, A, C]
+   *   sequência colapsada: [A, B, A, C]
+   *   (A aparece de novo após B → retrocesso real, contabilizado)
+   *   (A repetido 3x seguidas no início → 1 visita só, não 3)
    */
   static async _getNavigationSequence(sessionId, taskStartedAt, taskFinishedAt) {
     const result = await db.query(
@@ -217,7 +163,18 @@ class MetricsService {
        ORDER BY timestamp ASC`,
       [sessionId, taskStartedAt, taskFinishedAt]
     );
-    return result.rows.map(r => r.url);
+
+    const rawUrls = result.rows.map(r => r.url);
+
+    // Colapsar repetições consecutivas
+    const collapsed = [];
+    for (const url of rawUrls) {
+      if (collapsed.length === 0 || collapsed[collapsed.length - 1] !== url) {
+        collapsed.push(url);
+      }
+    }
+
+    return collapsed;
   }
 
   /**
@@ -675,24 +632,22 @@ class MetricsService {
    */
   static async fullTestReport(testId) {
     const [
-      completionRate, errorRate, abandonment,
-      timeOnTask, clickEfficiency, successPerMinute,
+      completionRate, errorRate,
+      timeOnTask, clickEfficiency,
       lostness, backtrack, pageDepth,
     ] = await Promise.all([
       MetricsService.taskCompletionRate(testId),
       MetricsService.errorRate(testId),
-      MetricsService.abandonmentRate(testId),
       MetricsService.timeOnTask(testId),
       MetricsService.clickEfficiency(testId),
-      MetricsService.successPerMinute(testId),
       MetricsService.lostnessScore(testId),
       MetricsService.backtrackRate(testId),
       MetricsService.pageDepth(testId),
     ]);
 
     return {
-      effectiveness: { completionRate, errorRate, abandonment },
-      efficiency:    { timeOnTask, clickEfficiency, successPerMinute },
+      effectiveness: { completionRate, errorRate },
+      efficiency:    { timeOnTask, clickEfficiency },
       navigability:  { lostness, backtrack, pageDepth },
     };
   }

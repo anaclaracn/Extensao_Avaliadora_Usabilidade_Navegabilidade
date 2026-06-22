@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="styles/scanner.css" />
     <link rel="stylesheet" href="styles/crawler.css" />
     <link rel="stylesheet" href="styles/report.css" />
+    <link rel="stylesheet" href="styles/confirm-modal.css" />
   </head>
   <body>
 
@@ -501,6 +502,19 @@
       </div>
     </div>
 
+    <!-- ══ TELA: POPUP ══════════════════════════════════════════ -->
+    <div id="confirm-modal-overlay" class="confirm-modal-overlay hidden">
+      <div class="confirm-modal">
+        <div class="confirm-modal-icon" id="confirm-modal-icon">⚠️</div>
+        <h3 class="confirm-modal-title" id="confirm-modal-title">Confirmar ação</h3>
+        <p class="confirm-modal-message" id="confirm-modal-message">Tem certeza?</p>
+        <div class="confirm-modal-actions">
+          <button class="confirm-modal-btn confirm-modal-btn-cancel" id="confirm-modal-cancel">Cancelar</button>
+          <button class="confirm-modal-btn confirm-modal-btn-confirm" id="confirm-modal-confirm">Confirmar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Scripts por responsabilidade -->
     <script src="scripts/main.js"></script>
     <script src="scripts/identify.js"></script>
@@ -509,5 +523,6 @@
     <script src="scripts/researcher.js"></script>
     <script src="scripts/crawler.js"></script>
     <script src="scripts/report.js"></script>
+    <script src="scripts/confirm-modal.js"></script>
   </body>
 </html>

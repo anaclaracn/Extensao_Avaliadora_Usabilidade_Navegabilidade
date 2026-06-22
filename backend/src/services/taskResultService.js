@@ -94,6 +94,58 @@ class TaskResultService {
     );
     return result.rows;
   }
+
+  /**
+   * Criar registro de INÍCIO de tentativa (chamado quando o
+   * participante clica "Começar" na tarefa, antes de saber o resultado)
+   */
+  static async startAttempt({ task_id, session_id, started_at }) {
+    const result = await db.query(
+      `INSERT INTO task_results (task_id, session_id, started_at, status)
+       VALUES ($1, $2, $3, 'started')
+       RETURNING *;`,
+      [task_id, session_id, started_at]
+    );
+    return result.rows[0];
+  }
+
+  /**
+   * Finalizar uma tentativa já existente (chamado ao clicar
+   * Concluí ou Não consegui). Atualiza o registro criado por
+   * startAttempt em vez de criar um novo.
+   */
+  static async finishAttempt({ result_id, finished_at, success, clicks }) {
+    const result = await db.query(
+      `UPDATE task_results
+       SET finished_at = $1, success = $2, clicks = $3, status = 'completed'
+       WHERE id = $4
+       RETURNING *;`,
+      [finished_at, success, clicks, result_id]
+    );
+    return result.rows[0] || null;
+  }
+
+  /**
+   * Marcar tentativas órfãs como abandonadas: registros com
+   * status='started' cuja sessão já foi encerrada (sessions.ended_at
+   * preenchido) há mais de N minutos, mas nunca foram finalizados.
+   * Pode ser chamado periodicamente (cron) ou ao consultar métricas.
+   */
+  static async markStaleAttemptsAsAbandoned(staleMinutes = 30) {
+    const result = await db.query(
+      `UPDATE task_results tr
+       SET status = 'abandoned'
+       FROM sessions s
+       WHERE tr.session_id = s.id
+         AND tr.status = 'started'
+         AND (
+           s.ended_at IS NOT NULL
+           OR tr.started_at < NOW() - INTERVAL '${staleMinutes} minutes'
+         )
+       RETURNING tr.id;`
+    );
+    return result.rows.length;
+  }
 }
 
 module.exports = TaskResultService;

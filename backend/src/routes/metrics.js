@@ -7,12 +7,10 @@ const router = express.Router();
 // ── Eficácia (Effectiveness) ──────────────────────────────────
 router.get('/test/:testId/completion-rate',  MetricsController.completionRate);
 router.get('/test/:testId/error-rate',       MetricsController.errorRate);
-router.get('/test/:testId/abandonment-rate', MetricsController.abandonmentRate);
 
 // ── Eficiência (Efficiency) ────────────────────────────────────
 router.get('/test/:testId/time-on-task',      MetricsController.timeOnTask);
 router.get('/test/:testId/click-efficiency',  MetricsController.clickEfficiency);
-router.get('/test/:testId/success-per-minute',MetricsController.successPerMinute);
 
 // ── Navegabilidade (Lostness, backtrack, profundidade) ────────
 router.get('/test/:testId/lostness',    MetricsController.lostness);
