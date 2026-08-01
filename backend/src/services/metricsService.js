@@ -570,27 +570,71 @@ class MetricsService {
   static async hoverTimeAnalysis(testId) {
     const result = await db.query(
       `SELECT
-         e.tag, e.element_id, e."class",
-         COUNT(*) AS hover_count,
-         ROUND(AVG(e.text::numeric), 0) AS avg_hover_ms,
-         MAX(e.text::numeric) AS max_hover_ms,
-         MIN(e.text::numeric) AS min_hover_ms
-       FROM events e
-       JOIN task_results tr
-         ON tr.session_id = e.session_id
-        AND e.timestamp BETWEEN tr.started_at AND tr.finished_at
-       JOIN tasks t ON t.id = tr.task_id
-       WHERE t.test_id = $1
-         AND e.type = 'hover'
-         AND e.text ~ '^[0-9]+$'   -- garante que o campo text é numérico
-       GROUP BY e.tag, e.element_id, e."class"
-       ORDER BY avg_hover_ms DESC
-       LIMIT 15`,
+        e.tag, e.element_id, e."class",
+        COUNT(*) AS hover_count,
+        ROUND(AVG(e.text::numeric), 0) AS avg_hover_ms,
+        MAX(e.text::numeric) AS max_hover_ms,
+        MIN(e.text::numeric) AS min_hover_ms,
+        (
+          SELECT ev.text
+          FROM events ev
+          JOIN sessions sv ON sv.id = ev.session_id
+          JOIN sites si ON si.id = sv.site_id
+          JOIN tests t2 ON t2.site_id = si.id
+          WHERE t2.id = $1
+            AND ev.type = 'click'
+            AND ev.tag = e.tag
+            AND (ev.element_id = e.element_id OR (ev.element_id IS NULL AND e.element_id IS NULL))
+            AND (ev."class" = e."class"   OR (ev."class"   IS NULL AND e."class"   IS NULL))
+            AND ev.text IS NOT NULL
+            AND ev.text != ''
+          GROUP BY ev.text
+          ORDER BY COUNT(*) DESC
+          LIMIT 1
+        ) AS element_text
+      FROM events e
+      JOIN sessions s ON s.id = e.session_id
+      JOIN sites si ON si.id = s.site_id
+      JOIN tests t ON t.site_id = si.id
+      WHERE t.id = $1
+        AND e.type = 'hover'
+        AND e.text ~ '^[0-9]+$'
+      GROUP BY e.tag, e.element_id, e."class"
+      ORDER BY avg_hover_ms DESC
+      LIMIT 5`,
       [testId]
     );
     return result.rows;
   }
 
+  static async scrollDepth(testId) {
+    const result = await db.query(
+      `SELECT
+        t.id   AS task_id,
+        t.description,
+        ROUND(AVG(deepest.max_scroll)::numeric, 1) AS avg_scroll_depth_pct,
+        ROUND(MIN(deepest.max_scroll)::numeric, 1) AS min_scroll_depth_pct,
+        ROUND(MAX(deepest.max_scroll)::numeric, 1) AS max_scroll_depth_pct,
+        COUNT(*) AS sample_size
+      FROM tasks t
+      JOIN task_results tr
+        ON tr.task_id = t.id
+        AND tr.status = 'completed'
+      JOIN LATERAL (
+        SELECT MAX(e.scroll_depth_pct) AS max_scroll
+        FROM events e
+        WHERE e.session_id = tr.session_id
+          AND e.type = 'scroll'
+          AND e.timestamp BETWEEN tr.started_at AND tr.finished_at
+          AND e.scroll_depth_pct IS NOT NULL
+      ) deepest ON true
+      WHERE t.test_id = $1
+      GROUP BY t.id, t.description
+      ORDER BY t.order_index ASC NULLS LAST, t.id ASC`,
+      [testId]
+    );
+    return result.rows;
+  }
 
   // ════════════════════════════════════════════════════════════
   // DIMENSÃO 4 — ESTRUTURA DO SITE (análise estática via varredura)

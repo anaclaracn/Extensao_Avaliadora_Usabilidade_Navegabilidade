@@ -424,12 +424,17 @@ async function loadHoverTime(testId) {
         ? `#${row.element_id}`
         : (row.class ? `.${String(row.class).split(' ')[0]}` : `<${row.tag}>`);
 
+      const elementText = row.element_text
+        ? `"${String(row.element_text).slice(0, 40)}${row.element_text.length > 40 ? '…' : ''}"`
+        : null;
+
       const el = document.createElement('div');
       el.className = 'hover-item';
       el.innerHTML = `
         <div class="hover-item-tag">${escHtmlReport(row.tag || '?')}</div>
         <div class="hover-item-info">
           <span class="hover-item-label">${escHtmlReport(elementLabel)}</span>
+          ${elementText ? `<span class="hover-item-text">${escHtmlReport(elementText)}</span>` : ''}
           <span class="hover-item-meta">${row.hover_count}x observado</span>
         </div>
         <div class="hover-item-stats">

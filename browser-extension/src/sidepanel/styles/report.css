@@ -208,3 +208,12 @@
 .hover-item-range {
   font-family: var(--mono); font-size: 8.5px; color: var(--text-3);
 }
+
+.hover-item-text {
+  font-size: 10.5px;
+  color: var(--teal);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
