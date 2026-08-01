@@ -19,6 +19,15 @@ class MetricsController {
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
   }
 
+    static async demographics(req, res) {
+    try {
+      const data = await MetricsService.completionRateByDemographics(req.params.testId);
+      res.json({ success: true, data });
+    } catch (e) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
   // ── Eficiência ────────────────────────────────────────────────
   static async timeOnTask(req, res) {
     try {
@@ -74,6 +83,24 @@ class MetricsController {
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
   }
 
+  static async scrollDepth(req, res) {
+    try {
+      const data = await MetricsService.scrollDepth(req.params.testId);
+      res.json({ success: true, data });
+    } catch (e) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
+  static async hoverTime(req, res) {
+    try {
+      const data = await MetricsService.hoverTimeAnalysis(req.params.testId);
+      res.json({ success: true, data });
+    } catch (e) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
   // ── Estrutura (varredura) ───────────────────────────────────
   static async interactiveDensity(req, res) {
     try {
@@ -122,6 +149,41 @@ class MetricsController {
     try {
       const data = await MetricsService.participantBreakdown(req.params.testId);
       res.json({ success: true, count: data.length, data });
+    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  }
+
+  static async submitSus(req, res) {
+    try {
+      const { user_id, site_id, q1, q2, q3, q4, q5, q6, q7, q8, q9, q10 } = req.body;
+      const answers = { q1, q2, q3, q4, q5, q6, q7, q8, q9, q10 };
+
+      // Validar que todas as perguntas foram respondidas
+      const missing = Object.entries(answers).filter(([,v]) => v === undefined || v === null).map(([k]) => k);
+      if (!user_id || !site_id || missing.length) {
+        return res.status(400).json({
+          success: false,
+          error: 'Campos obrigatórios ausentes',
+          missing: [!user_id && 'user_id', !site_id && 'site_id', ...missing].filter(Boolean),
+        });
+      }
+
+      const data = await MetricsService.submitSusResponse({ userId: user_id, siteId: site_id, answers });
+      return res.status(201).json({
+        success: true,
+        message: 'Resposta SUS registrada',
+        sus_score: data.sus_score,
+        data,
+      });
+    } catch (err) {
+      console.error('❌ Erro ao salvar SUS:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async susSummary(req, res) {
+    try {
+      const data = await MetricsService.siteSusSummary(req.params.siteId);
+      res.json({ success: true, data });
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
   }
 }

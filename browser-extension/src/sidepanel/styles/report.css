@@ -131,3 +131,80 @@
 .report-detail-row:last-child { border-bottom: none; }
 .report-detail-task { flex: 1; color: var(--text); }
 .report-detail-stat  { color: var(--text-2); font-family: var(--mono); white-space: nowrap; }
+
+.demo-group { margin-bottom: 14px; }
+.demo-group:last-child { margin-bottom: 0; }
+
+.demo-group-title {
+  font-size: 11px; font-weight: 700; color: var(--text-2);
+  text-transform: uppercase; letter-spacing: .4px;
+  margin-bottom: 8px;
+}
+
+.demo-bars { display: flex; flex-direction: column; gap: 7px; }
+
+.demo-bar-row {
+  display: flex; align-items: center; gap: 8px;
+}
+
+.demo-bar-label {
+  font-size: 11px; color: var(--text); font-weight: 600;
+  min-width: 65px; flex-shrink: 0;
+}
+
+.demo-bar-track {
+  flex: 1; height: 10px; background: var(--bg);
+  border-radius: 5px; overflow: hidden;
+}
+
+.demo-bar-fill {
+  height: 100%; background: linear-gradient(90deg, #1a56db, #7c3aed);
+  border-radius: 5px; transition: width .4s ease;
+}
+
+.demo-bar-pct {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  color: var(--primary); min-width: 38px; text-align: right;
+}
+
+.demo-bar-n {
+  font-family: var(--mono); font-size: 9.5px; color: var(--text-3);
+  min-width: 42px;
+}
+
+.report-hover-list { display: flex; flex-direction: column; gap: 6px; }
+
+.hover-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px;
+}
+
+.hover-item-tag {
+  font-family: var(--mono); font-size: 9px; font-weight: 700;
+  color: var(--admin); background: #ede9fe;
+  padding: 3px 6px; border-radius: 4px; text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.hover-item-info {
+  flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0;
+}
+.hover-item-label {
+  font-size: 11.5px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hover-item-meta {
+  font-size: 9.5px; color: var(--text-3);
+}
+
+.hover-item-stats {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  flex-shrink: 0;
+}
+.hover-item-avg {
+  font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--amber);
+}
+.hover-item-range {
+  font-family: var(--mono); font-size: 8.5px; color: var(--text-3);
+}

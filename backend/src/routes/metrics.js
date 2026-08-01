@@ -7,6 +7,7 @@ const router = express.Router();
 // ── Eficácia (Effectiveness) ──────────────────────────────────
 router.get('/test/:testId/completion-rate',  MetricsController.completionRate);
 router.get('/test/:testId/error-rate',       MetricsController.errorRate);
+router.get('/test/:testId/demographics', MetricsController.demographics);
 
 // ── Eficiência (Efficiency) ────────────────────────────────────
 router.get('/test/:testId/time-on-task',      MetricsController.timeOnTask);
@@ -17,6 +18,8 @@ router.get('/test/:testId/lostness',    MetricsController.lostness);
 router.get('/test/:testId/backtrack',   MetricsController.backtrack);
 router.get('/test/:testId/page-depth', MetricsController.pageDepth);
 router.get('/test/:testId/participant-breakdown', MetricsController.participantBreakdown);
+router.get('/test/:testId/scroll-depth', MetricsController.scrollDepth);
+router.get('/test/:testId/hover-time', MetricsController.hoverTime);
 
 // Estas duas usam o site inteiro (cruzam eventos de todas as sessões do site)
 router.get('/site/:siteId/non-interactive-clicks', MetricsController.nonInteractiveClicks);
@@ -31,5 +34,8 @@ router.get('/snapshot/:snapshotId/alt-coverage',         MetricsController.altCo
 // ── Relatórios consolidados ────────────────────────────────────
 router.get('/test/:testId/full-report',          MetricsController.fullTestReport);
 router.get('/snapshot/:snapshotId/full-report',  MetricsController.fullStructuralReport);
+
+router.post("/sus",                     MetricsController.submitSus);
+router.get("/site/:siteId/sus-summary", MetricsController.susSummary);
 
 module.exports = router;

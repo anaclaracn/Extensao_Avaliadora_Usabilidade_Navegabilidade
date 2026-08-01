@@ -66,6 +66,74 @@ class MetricsService {
     return result.rows;
   }
 
+  /**
+   * Taxa de Conclusão de Tarefas por Perfil Demográfico
+   * Agrupa por faixa etária, gênero e escolaridade, para um
+   * teste específico.
+   *
+   * Faixas etárias: <18, 18-24, 25-34, 35-44, 45-59, 60+
+   */
+  static async completionRateByDemographics(testId) {
+    const ageRanges = `
+      CASE
+        WHEN u.age < 18 THEN '<18'
+        WHEN u.age BETWEEN 18 AND 24 THEN '18-24'
+        WHEN u.age BETWEEN 25 AND 34 THEN '25-34'
+        WHEN u.age BETWEEN 35 AND 44 THEN '35-44'
+        WHEN u.age BETWEEN 45 AND 59 THEN '45-59'
+        ELSE '60+'
+      END
+    `;
+
+    const byAge = await db.query(
+      `SELECT ${ageRanges} AS age_range,
+              COUNT(tr.id) AS total_attempts,
+              ROUND(100.0 * SUM(CASE WHEN tr.success THEN 1 ELSE 0 END) / COUNT(tr.id), 2) AS completion_rate_pct
+       FROM task_results tr
+       JOIN tasks t ON t.id = tr.task_id
+       JOIN sessions s ON s.id = tr.session_id
+       JOIN users u ON u.id = s.user_id
+       WHERE t.test_id = $1
+       GROUP BY age_range
+       ORDER BY age_range`,
+      [testId]
+    );
+
+    const byGender = await db.query(
+      `SELECT u.gender,
+              COUNT(tr.id) AS total_attempts,
+              ROUND(100.0 * SUM(CASE WHEN tr.success THEN 1 ELSE 0 END) / COUNT(tr.id), 2) AS completion_rate_pct
+       FROM task_results tr
+       JOIN tasks t ON t.id = tr.task_id
+       JOIN sessions s ON s.id = tr.session_id
+       JOIN users u ON u.id = s.user_id
+       WHERE t.test_id = $1
+       GROUP BY u.gender
+       ORDER BY completion_rate_pct DESC`,
+      [testId]
+    );
+
+    const byEducation = await db.query(
+      `SELECT u.education_level,
+              COUNT(tr.id) AS total_attempts,
+              ROUND(100.0 * SUM(CASE WHEN tr.success THEN 1 ELSE 0 END) / COUNT(tr.id), 2) AS completion_rate_pct
+       FROM task_results tr
+       JOIN tasks t ON t.id = tr.task_id
+       JOIN sessions s ON s.id = tr.session_id
+       JOIN users u ON u.id = s.user_id
+       WHERE t.test_id = $1
+       GROUP BY u.education_level
+       ORDER BY completion_rate_pct DESC`,
+      [testId]
+    );
+
+    return {
+      by_age_range: byAge.rows,
+      by_gender: byGender.rows,
+      by_education_level: byEducation.rows,
+    };
+  }
+
   // ════════════════════════════════════════════════════════════
   // DIMENSÃO 2 — EFICIÊNCIA (Efficiency)
   // ════════════════════════════════════════════════════════════
@@ -490,6 +558,40 @@ class MetricsService {
     };
   }
 
+  /**
+   * Hover Time — tempo médio (em ms) que os participantes mantêm
+   * o mouse sobre cada elemento, dentro da janela de tempo de um
+   * teste. Identifica elementos que geram hesitação: o mouse
+   * passa por cima, "pensa", e só depois há ação (ou desistência).
+   *
+   * Retorna os 15 elementos com maior tempo médio de hover --
+   * esses são os candidatos mais fortes a gerar dúvida no usuário.
+   */
+  static async hoverTimeAnalysis(testId) {
+    const result = await db.query(
+      `SELECT
+         e.tag, e.element_id, e."class",
+         COUNT(*) AS hover_count,
+         ROUND(AVG(e.text::numeric), 0) AS avg_hover_ms,
+         MAX(e.text::numeric) AS max_hover_ms,
+         MIN(e.text::numeric) AS min_hover_ms
+       FROM events e
+       JOIN task_results tr
+         ON tr.session_id = e.session_id
+        AND e.timestamp BETWEEN tr.started_at AND tr.finished_at
+       JOIN tasks t ON t.id = tr.task_id
+       WHERE t.test_id = $1
+         AND e.type = 'hover'
+         AND e.text ~ '^[0-9]+$'   -- garante que o campo text é numérico
+       GROUP BY e.tag, e.element_id, e."class"
+       ORDER BY avg_hover_ms DESC
+       LIMIT 15`,
+      [testId]
+    );
+    return result.rows;
+  }
+
+
   // ════════════════════════════════════════════════════════════
   // DIMENSÃO 4 — ESTRUTURA DO SITE (análise estática via varredura)
   // ════════════════════════════════════════════════════════════
@@ -724,6 +826,48 @@ class MetricsService {
     }
 
     return Object.values(bySession);
+  }
+
+  // ── SUS — System Usability Scale (Brooke, 1986) ──────────────
+  // Score: perguntas ímpares = valor-1, pares = 5-valor, soma × 2.5
+  static calculateSusScore(a) {
+    const odd  = (a.q1-1)+(a.q3-1)+(a.q5-1)+(a.q7-1)+(a.q9-1);
+    const even = (5-a.q2)+(5-a.q4)+(5-a.q6)+(5-a.q8)+(5-a.q10);
+    return Math.round((odd+even)*2.5*100)/100;
+  }
+
+  static async submitSusResponse({userId, siteId, answers}) {
+    const score = MetricsService.calculateSusScore(answers);
+    const {q1,q2,q3,q4,q5,q6,q7,q8,q9,q10} = answers;
+    const r = await db.query(
+      `INSERT INTO sus_responses
+         (user_id, site_id, q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, sus_score)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       RETURNING *`,
+      [userId, siteId, q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, score]
+    );
+    return r.rows[0];
+  }
+
+  // Resumo do SUS de um site com classificação (Bangor et al., 2009)
+  static async siteSusSummary(siteId) {
+    const r = await db.query(
+      `SELECT COUNT(*) AS total_responses,
+              ROUND(AVG(sus_score)::numeric, 2)    AS avg_sus_score,
+              ROUND(STDDEV(sus_score)::numeric, 2) AS stddev_sus_score,
+              MIN(sus_score) AS min_sus_score,
+              MAX(sus_score) AS max_sus_score
+       FROM sus_responses WHERE site_id = $1`,
+      [siteId]
+    );
+    const row = r.rows[0];
+    const avg = parseFloat(row.avg_sus_score) || 0;
+    const classification =
+      avg >= 80.3 ? 'Excelente' :
+      avg >= 68   ? 'Bom'       :
+      avg >= 51   ? 'OK'        :
+      avg > 0     ? 'Pobre'     : 'Sem dados';
+    return { ...row, classification };
   }
 }
 

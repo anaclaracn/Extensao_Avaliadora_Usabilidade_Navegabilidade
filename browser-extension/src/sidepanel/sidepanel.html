@@ -159,6 +159,8 @@
           <p class="card-label">Detalhe por tarefa</p>
           <div id="tasks-breakdown" class="tasks-breakdown"></div>
         </div>
+        <p id="results-next-hint" class="results-hint hidden"></p>
+        <button id="btn-next-test" class="btn-primary hidden">Próximo teste</button>
         <button id="btn-new-session" class="btn-primary">Nova sessão</button>
       </div>
     </div>
@@ -487,6 +489,32 @@
           </div>
         </div>
 
+        <!-- Conclusão por Perfil Demográfico -->
+        <div class="card">
+          <p class="card-label">📊 Conclusão por Perfil Demográfico</p>
+          <div id="report-demographics-list" class="report-demographics-list">
+            <p class="empty-state">Carregando...</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <p class="card-label">🖱️ Hover Time — Elementos que geram hesitação</p>
+          <p style="font-size:11px;color:var(--text-2);margin-bottom:8px;line-height:1.5">
+            Elementos onde os participantes mantiveram o mouse parado por mais tempo
+            antes de agir — podem indicar dúvida ou falta de clareza.
+          </p>
+          <div id="report-hover-list" class="report-hover-list">
+            <p class="empty-state">Carregando...</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <p class="card-label">📜 Scroll Depth — Profundidade de rolagem por tarefa</p>
+          <div id="report-scroll-list" class="report-dimension-list">
+            <p class="empty-state">Carregando...</p>
+          </div>
+        </div>
+
         <!-- Participantes individuais -->
         <div class="card">
           <p class="card-label">
@@ -524,5 +552,43 @@
     <script src="scripts/crawler.js"></script>
     <script src="scripts/report.js"></script>
     <script src="scripts/confirm-modal.js"></script>
-  </body>
+      <!-- ══ TELA: SUS ═══════════════════════════════════════════ -->
+    <div id="screen-sus" class="screen hidden">
+      <div class="header header-session">
+        <div class="logo">📋</div>
+        <h1>Última etapa</h1>
+        <p class="subtitle">Sua opinião sobre o site</p>
+      </div>
+      <div class="container">
+        <div class="card">
+          <p style="font-size:12px;color:var(--text-2);line-height:1.6">
+            Você concluiu todos os testes! Responda estas 10 perguntas rápidas sobre sua experiência geral com o site. Leva menos de 2 minutos.
+          </p>
+        </div>
+        <div id="sus-questions-container"></div>
+        <div id="sus-error" class="error-msg hidden"></div>
+        <button id="btn-submit-sus" class="btn-primary">Enviar respostas</button>
+        <button id="btn-skip-sus" class="btn-ghost">Pular esta etapa</button>
+      </div>
+    </div>
+
+    <!-- ══ TELA: SUS CONCLUÍDO ══════════════════════════════════ -->
+    <div id="screen-sus-done" class="screen hidden">
+      <div class="header header-results">
+        <div class="logo">🎉</div>
+        <h1>Obrigado!</h1>
+        <p class="subtitle">Sua participação foi registrada</p>
+      </div>
+      <div class="container">
+        <div class="card" style="text-align:center;padding:30px 20px">
+          <div style="font-size:40px;margin-bottom:10px">✅</div>
+          <p style="font-size:14px;color:var(--text);font-weight:600">Todos os testes e o questionário foram concluídos.</p>
+          <p style="font-size:12px;color:var(--text-2);margin-top:8px">Você já pode fechar esta janela.</p>
+        </div>
+        <button id="btn-sus-done-new" class="btn-primary">Nova sessão</button>
+      </div>
+    </div>
+
+    <script src="scripts/sus.js"></script>
+</body>
 </html>

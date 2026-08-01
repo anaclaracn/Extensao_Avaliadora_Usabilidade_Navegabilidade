@@ -16,20 +16,44 @@ async function enterPickTest(){
     const tests=res.data||[];
     if(!tests.length){ list.innerHTML='<p class="empty-state">Nenhum teste configurado para este site.<br>Peça ao pesquisador para criar um.</p>'; return; }
     list.innerHTML='';
-    tests.forEach(test=>{
-      const el=document.createElement('div'); el.className='test-item';
-      el.innerHTML=`<span class="test-item-icon">📋</span><div class="test-item-info"><div class="test-item-name">${test.name}</div><div class="test-item-meta">id #${test.id}</div></div><span class="test-item-arrow">›</span>`;
-      el.addEventListener('click',()=>selectTest(test));
+    tests.forEach(test => {
+      const done = S.completedTestIds.includes(test.id);
+      const el = document.createElement('div');
+      el.className = 'test-item' + (done ? ' test-item-done' : '');
+
+      el.innerHTML = `
+        <span class="test-item-icon">${done ? '✅' : '📋'}</span>
+        <div class="test-item-info">
+          <div class="test-item-name">${test.name}</div>
+          <div class="test-item-meta">${done ? 'Já realizado' : 'id #' + test.id}</div>
+        </div>
+        <span class="test-item-arrow">${done ? '' : '›'}</span>
+      `;
+
+      if (!done) {
+        el.addEventListener('click', () => selectTest(test));
+      }
+
       list.appendChild(el);
     });
   } catch(err){ list.innerHTML=`<p class="empty-state" style="color:#dc2626">Erro: ${err.message}</p>`; }
 }
 
-async function selectTest(test){
-  S.activeTestId=test.id; S.activeTestName=test.name;
-  try{ const res=await api('GET',`/tasks?test_id=${test.id}`); S.tasks=(res.data||[]).map(t=>({...t,_done:false,_success:false})); }
-  catch(_){ S.tasks=[]; }
-  saveSessionState(); enterSession(false);
+async function selectTest(test) {
+  S.activeTestId   = test.id;
+  S.activeTestName = test.name;
+  S.taskTimerMs    = 0;
+
+  try {
+    const res = await api('GET', `/tasks?test_id=${test.id}`);
+    S.tasks = (res.data || []).map(t => ({...t, _done:false, _success:false}));
+  } catch(_) { S.tasks = []; }
+
+  // Zerar contadores do background para este teste
+  chrome.runtime.sendMessage({action: 'resetTestStats'});
+
+  saveSessionState();
+  enterSession(false);
 }
 
 // ── SESSION ───────────────────────────────────────────────────
@@ -127,31 +151,95 @@ function updateSessionStats(){
 }
 
 // ── RESULTS ───────────────────────────────────────────────────
+
+// ── RESULTS ───────────────────────────────────────────────────
 function bindResults(){
-  $('btn-new-session').addEventListener('click',()=>{
-    chrome.runtime.sendMessage({action:'resetStats'}); clearSessionState();
-    S.sessionId=null; S.userId=null; S.sessionStart=null; S.activeTestId=null; S.activeTestName=null; S.tasks=[]; S.activeTaskIdx=null; S.taskTimerMs=0;
+  $('btn-new-session').addEventListener('click', () => {
+    chrome.runtime.sendMessage({action:'resetStats'});
+    clearSessionState();
+    S.sessionId=null; S.userId=null; S.sessionStart=null;
+    S.activeTestId=null; S.activeTestName=null;
+    S.tasks=[]; S.activeTaskIdx=null; S.taskTimerMs=0;
+    S.completedTestIds=[];
     showScreen('identify'); resetIdentifyUI();
+  });
+
+  $('btn-next-test').addEventListener('click', () => {
+    enterPickTest();
   });
 }
 
 async function showResults(){
-  showScreen('results'); $('results-test-name').textContent=S.activeTestName||'—';
-  const bgStats=(await new Promise(r=>chrome.runtime.sendMessage({action:'getEventStats'},r)))?.stats||{};
-  const done=S.tasks.filter(t=>t._done), succeeded=done.filter(t=>t._success);
-  const totalMs=done.reduce((a,t)=>a+(t._durationMs||0),0), totalClks=done.reduce((a,t)=>a+(t._clicks||0),0);
-  const sessionSec=bgStats.sessionDuration||Math.floor((Date.now()-S.sessionStart)/1000);
-  $('m-success-rate').textContent=done.length>0?Math.round((succeeded.length/S.tasks.length)*100)+'%':'—';
-  $('m-total-time').textContent=fmtSec(sessionSec); $('m-total-clicks').textContent=totalClks;
-  $('m-avg-time').textContent=done.length>0?fmtMs(Math.round(totalMs/done.length)):'—';
-  $('m-avg-clicks').textContent=done.length>0?Math.round(totalClks/done.length):'—';
-  $('m-events').textContent=bgStats.eventsCollected||0;
-  const bd=$('tasks-breakdown'); bd.innerHTML='';
-  S.tasks.forEach((t,i)=>{
-    const el=document.createElement('div'); el.className='breakdown-item';
-    const status=!t._done?'<span class="breakdown-badge" style="background:#f3f4f6;color:#6b7280">Não iniciada</span>':t._success?'<span class="breakdown-badge ok">Concluída ✓</span>':'<span class="breakdown-badge fail">Não concluída ✗</span>';
-    el.innerHTML=`<div class="breakdown-header"><span class="breakdown-num">#${i+1}</span><span class="breakdown-desc">${t.description}</span>${status}</div><div class="breakdown-stats"><span class="bstat">⏱ <strong>${t._durationMs!=null?fmtMs(t._durationMs):'—'}</strong></span><span class="bstat">🖱 <strong>${t._clicks!=null?t._clicks:'—'}</strong> clicks</span></div>`;
+  showScreen('results');
+  $('results-test-name').textContent = S.activeTestName || '—';
+
+  // Marcar este teste como concluído nesta sessão
+  if (S.activeTestId && !S.completedTestIds.includes(S.activeTestId)) {
+    S.completedTestIds.push(S.activeTestId);
+  }
+
+  const bgStats   = (await new Promise(r => chrome.runtime.sendMessage({action:'getEventStats'}, r)))?.stats || {};
+  const done      = S.tasks.filter(t => t._done);
+  const succeeded = done.filter(t => t._success);
+  const totalMs   = done.reduce((a,t) => a+(t._durationMs||0), 0);
+  const totalClks = done.reduce((a,t) => a+(t._clicks||0), 0);
+  const sessionSec = bgStats.sessionDuration || Math.floor((Date.now()-S.sessionStart)/1000);
+
+  $('m-success-rate').textContent = done.length > 0 ? Math.round((succeeded.length/S.tasks.length)*100)+'%' : '—';
+  $('m-total-time').textContent   = fmtSec(sessionSec);
+  $('m-total-clicks').textContent = totalClks;
+  $('m-avg-time').textContent     = done.length > 0 ? fmtMs(Math.round(totalMs/done.length)) : '—';
+  $('m-avg-clicks').textContent   = done.length > 0 ? Math.round(totalClks/done.length) : '—';
+  $('m-events').textContent       = bgStats.eventsCollected || 0;
+
+  const bd = $('tasks-breakdown'); bd.innerHTML = '';
+  S.tasks.forEach((t,i) => {
+    const el = document.createElement('div'); el.className = 'breakdown-item';
+    const status = !t._done
+      ? '<span class="breakdown-badge" style="background:#f3f4f6;color:#6b7280">Não iniciada</span>'
+      : t._success
+        ? '<span class="breakdown-badge ok">Concluída ✓</span>'
+        : '<span class="breakdown-badge fail">Não concluída ✗</span>';
+    el.innerHTML = `<div class="breakdown-header"><span class="breakdown-num">#${i+1}</span><span class="breakdown-desc">${t.description}</span>${status}</div><div class="breakdown-stats"><span class="bstat">⏱ <strong>${t._durationMs!=null?fmtMs(t._durationMs):'—'}</strong></span><span class="bstat">🖱 <strong>${t._clicks!=null?t._clicks:'—'}</strong> clicks</span></div>`;
     bd.appendChild(el);
   });
+
   saveSessionState();
+  await checkForNextTest();
+}
+
+async function checkForNextTest() {
+  try {
+    const res       = await api('GET', `/tests?site_url=${encodeURIComponent(S.currentSiteUrl||'')}`);
+    const all       = res.data || [];
+    const remaining = all.filter(t => !S.completedTestIds.includes(t.id));
+
+    if (remaining.length > 0) {
+      // Ainda há testes — mostrar botão "Próximo teste"
+      hide('btn-new-session');
+      show('btn-next-test');
+      $('btn-next-test').textContent = `Próximo teste (${remaining.length} restante${remaining.length > 1 ? 's' : ''})`;
+      show('results-next-hint');
+      $('results-next-hint').textContent = 'Você ainda tem testes disponíveis para este site.';
+    } else {
+      // Todos os testes concluídos
+      hide('btn-next-test');
+      hide('results-next-hint');
+
+      // Encerrar sessão antes de decidir o próximo passo
+      if (S.sessionId) {
+        try { await api('PATCH', `/sessions/${S.sessionId}/end`, {}); } catch(_) {}
+      }
+
+      // Verificar se a tela de SUS existe e disparar questionário
+      if (document.getElementById('screen-sus')) {
+        enterSusScreen();
+      } else {
+        show('btn-new-session');
+      }
+    }
+  } catch(_) {
+    hide('btn-next-test');
+    show('btn-new-session');
+  }
 }

@@ -20,6 +20,8 @@ class EventController {
         x,
         y,
         timestamp,
+        scroll_depth_pct,
+        page_height,
       } = req.body;
 
       console.log(`📝 Evento: ${type} | sessão=${session_id}`);
@@ -35,6 +37,8 @@ class EventController {
         x,
         y,
         timestamp,
+        scroll_depth_pct,
+        page_height,
       });
 
       return res.status(201).json({

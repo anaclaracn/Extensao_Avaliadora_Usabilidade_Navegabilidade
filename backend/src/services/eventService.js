@@ -23,25 +23,27 @@ class EventService {
       timestamp,
     } = data;
 
-    const query = `
-      INSERT INTO events
-        (session_id, type, tag, text, element_id, class, url, x, y, timestamp)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING *;
-    `;
-
-    const values = [
-      session_id,
-      type,
-      tag        || null,
-      text       || null,
-      element_id || null,
-      cssClass   || null,
-      url        || null,
-      x          || null,
-      y          || null,
-      timestamp,
-    ];
+  const query = `
+    INSERT INTO events
+      (session_id, type, tag, text, element_id, "class", url, x, y, timestamp,
+      scroll_depth_pct, page_height)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    RETURNING *;
+  `;
+  
+  const values = [
+    session_id, type,
+    tag        || null,
+    text       || null,
+    element_id || null,
+    cssClass   || null,
+    url        || null,
+    x          || null,
+    y          || null,
+    timestamp,
+    data.scroll_depth_pct ?? null,
+    data.page_height      ?? null,
+  ];
 
     const result = await db.query(query, values);
     return result.rows[0];

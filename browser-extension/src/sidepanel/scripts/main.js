@@ -9,7 +9,7 @@ const SESSION_KEY     = 'uxSessionState';
 const S = {
   backendUrl:'http://localhost:3000', currentSiteUrl:null,
   userId:null, sessionId:null, sessionStart:null,
-  activeTestId:null, activeTestName:null, tasks:[],
+  activeTestId:null, activeTestName:null, tasks:[], completedTestIds:[],
   activeTaskIdx:null, taskTimerMs:0, taskTimerInt:null, statsInt:null,
   currentScreen:'identify', loggedResearcher:null,
 };
@@ -43,7 +43,7 @@ function saveSessionState(){
   chrome.storage.session.set({[SESSION_KEY]:{
     userId:S.userId, sessionId:S.sessionId, sessionStart:S.sessionStart,
     activeTestId:S.activeTestId, activeTestName:S.activeTestName,
-    tasks:S.tasks, activeTaskIdx:S.activeTaskIdx,
+    tasks:S.tasks, activeTaskIdx:S.activeTaskIdx, completedTestIds:S.completedTestIds,
     taskTimerMs:S.taskTimerMs, currentScreen:S.currentScreen,
   }});
 }
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
   const saved = await loadSessionState();
   if(saved?.sessionId){
-    Object.assign(S,saved);
+    Object.assign(S,saved); S.completedTestIds=saved.completedTestIds||[];
     chrome.runtime.sendMessage({action:'getExtensionStatus'},(res)=>{
       if(!res?.status?.sessionId) chrome.runtime.sendMessage({action:'sessionCreated',sessionId:S.sessionId,userId:S.userId});
     });
@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     showScreen('identify');
   }
 
-  bindIdentify(); bindPickTest(); bindSession(); bindResults(); bindAdmin(); bindScanner(); bindCrawler(); bindReport();
+  bindIdentify(); bindPickTest(); bindSession(); bindResults(); bindSus(); bindAdmin(); bindScanner(); bindCrawler(); bindReport();
 
   chrome.runtime.onMessage.addListener((req)=>{ if(req.action==='eventLogged') updateSessionStats(); });
   chrome.tabs.onActivated.addListener(async(info)=>{ const t=await chrome.tabs.get(info.tabId); if(t?.url) S.currentSiteUrl=t.url; });

@@ -37,6 +37,9 @@ async function enterReportScreen(testId, testName) {
     loadEffectivenessAndEfficiency(testId),
     loadNavigability(testId),
     loadStructuralMetrics(),
+    loadDemographics(testId), 
+    loadHoverTime(testId),   
+    loadScrollDepth(testId),
     loadParticipantBreakdown(testId),
   ]);
 }
@@ -342,4 +345,135 @@ function fmtSecReport(s) {
 
 function fmtPctReport(v) {
   return v != null ? `${v}%` : '—';
+}
+
+async function loadDemographics(testId) {
+  const list = $('report-demographics-list');
+  try {
+    const res  = await api('GET', `/metrics/test/${testId}/demographics`);
+    const data = res.data;
+
+    list.innerHTML = '';
+
+    const groups = [
+      { key: 'by_age_range',       title: 'Por faixa etária',  labelField: 'age_range' },
+      { key: 'by_gender',          title: 'Por gênero',        labelField: 'gender' },
+      { key: 'by_education_level', title: 'Por escolaridade',  labelField: 'education_level' },
+    ];
+
+    let hasAnyData = false;
+
+    groups.forEach(group => {
+      const rows = data[group.key] || [];
+      if (!rows.length) return;
+      hasAnyData = true;
+
+      const groupEl = document.createElement('div');
+      groupEl.className = 'demo-group';
+      groupEl.innerHTML = `<p class="demo-group-title">${group.title}</p>`;
+
+      const barsContainer = document.createElement('div');
+      barsContainer.className = 'demo-bars';
+
+      rows.forEach(row => {
+        const label = row[group.labelField] || '—';
+        const pct   = row.completion_rate_pct ?? 0;
+        const n     = row.total_attempts ?? 0;
+
+        const barRow = document.createElement('div');
+        barRow.className = 'demo-bar-row';
+        barRow.innerHTML = `
+          <span class="demo-bar-label">${escHtmlReport(label)}</span>
+          <div class="demo-bar-track">
+            <div class="demo-bar-fill" style="width:${pct}%"></div>
+          </div>
+          <span class="demo-bar-pct">${pct}%</span>
+          <span class="demo-bar-n">(n=${n})</span>
+        `;
+        barsContainer.appendChild(barRow);
+      });
+
+      groupEl.appendChild(barsContainer);
+      list.appendChild(groupEl);
+    });
+
+    if (!hasAnyData) {
+      list.innerHTML = '<p class="empty-state">Nenhum dado demográfico disponível ainda.</p>';
+    }
+
+  } catch (err) {
+    list.innerHTML = errBoxReport(err.message);
+  }
+}
+
+async function loadHoverTime(testId) {
+  const list = $('report-hover-list');
+  try {
+    const res  = await api('GET', `/metrics/test/${testId}/hover-time`);
+    const rows = res.data || [];
+
+    list.innerHTML = '';
+
+    if (!rows.length) {
+      list.innerHTML = '<p class="empty-state">Nenhum dado de hover registrado ainda.</p>';
+      return;
+    }
+
+    rows.forEach(row => {
+      const elementLabel = row.element_id
+        ? `#${row.element_id}`
+        : (row.class ? `.${String(row.class).split(' ')[0]}` : `<${row.tag}>`);
+
+      const el = document.createElement('div');
+      el.className = 'hover-item';
+      el.innerHTML = `
+        <div class="hover-item-tag">${escHtmlReport(row.tag || '?')}</div>
+        <div class="hover-item-info">
+          <span class="hover-item-label">${escHtmlReport(elementLabel)}</span>
+          <span class="hover-item-meta">${row.hover_count}x observado</span>
+        </div>
+        <div class="hover-item-stats">
+          <span class="hover-item-avg">${fmtMsReport(row.avg_hover_ms)}</span>
+          <span class="hover-item-range">min ${fmtMsReport(row.min_hover_ms)} · máx ${fmtMsReport(row.max_hover_ms)}</span>
+        </div>
+      `;
+      list.appendChild(el);
+    });
+
+  } catch (err) {
+    list.innerHTML = errBoxReport(err.message);
+  }
+}
+
+// Helper: formatar milissegundos como segundos quando >= 1000
+function fmtMsReport(ms) {
+  ms = Number(ms);
+  if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.round(ms)}ms`;
+}
+
+async function loadScrollDepth(testId) {
+  const list = $('report-scroll-list');
+  try {
+    const res  = await api('GET', `/metrics/test/${testId}/scroll-depth`);
+    const rows = res.data || [];
+
+    list.innerHTML = '';
+
+    if (!rows.length) {
+      list.innerHTML = '<p class="empty-state">Nenhum dado de scroll registrado ainda.</p>';
+      return;
+    }
+
+    rows.forEach((task, i) => {
+      list.appendChild(metricCardReport(i, task.description, [
+        { val: task.avg_scroll_depth_pct != null ? `${task.avg_scroll_depth_pct}%` : '—', lbl: 'média' },
+        { val: task.min_scroll_depth_pct != null ? `${task.min_scroll_depth_pct}%` : '—', lbl: 'mínimo' },
+        { val: task.max_scroll_depth_pct != null ? `${task.max_scroll_depth_pct}%` : '—', lbl: 'máximo' },
+        { val: task.sample_size ?? 0, lbl: 'amostras' },
+      ]));
+    });
+  } catch (err) {
+    list.innerHTML = errBoxReport(err.message);
+  }
 }

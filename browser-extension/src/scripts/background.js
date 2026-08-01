@@ -59,6 +59,14 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
       state.activeTask       = null;
       sendResponse({ success: true });
       break;
+
+    case 'resetTestStats':
+      state.eventsCollected  = 0;
+      state.sessionStartTime = Date.now();
+      state.completedTasks   = [];
+      state.activeTask       = null;
+      sendResponse({ success: true });
+      break;
  
     // Sidepanel consulta o estado atual ao reabrir o painel
     case 'getExtensionStatus':
@@ -187,10 +195,10 @@ async function handleCompleteTask(success, sendResponse) {
     sendResponse({ success: false, error: 'Nenhuma tarefa ativa' });
     return;
   }
- 
+
   const task = state.activeTask;
   const finishedAt = Date.now();
- 
+
   const result = {
     taskId:      task.id,
     description: task.description,
@@ -200,32 +208,29 @@ async function handleCompleteTask(success, sendResponse) {
     clicks:      task.clicks,
     success,
   };
- 
+
   state.completedTasks.push(result);
   state.activeTask = null;
- 
-  try {
-    const res = await fetch(`${state.backendUrl}/task-results/${task.resultId}/finish`, {
-      method:  'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        finished_at: new Date(result.finishedAt).toISOString(),
-        success:     result.success,
-        clicks:      result.clicks,
-      }),
-    });
- 
-    if (!res.ok) {
-      const data = await res.json();
-      console.error('❌ Erro ao finalizar tentativa:', data.error);
-    } else {
-      console.log('✅ Tentativa finalizada, result_id =', task.resultId);
-    }
-  } catch (err) {
-    console.error('❌ Erro ao chamar /task-results/:id/finish:', err.message);
-  }
- 
+
+  // Responde ao sidepanel IMEDIATAMENTE com o resultado local,
+  // antes do fetch — assim a porta MV3 não fecha antes da resposta chegar.
   sendResponse({ success: true, result });
+
+  // Persiste no backend em segundo plano (fire and forget)
+  fetch(`${state.backendUrl}/task-results/${task.resultId}/finish`, {
+    method:  'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      finished_at: new Date(result.finishedAt).toISOString(),
+      success:     result.success,
+      clicks:      result.clicks,
+    }),
+  })
+  .then(res => {
+    if (!res.ok) res.json().then(d => console.error('❌ Erro ao finalizar tentativa:', d.error));
+    else console.log('✅ Tentativa finalizada, result_id =', task.resultId);
+  })
+  .catch(err => console.error('❌ Erro ao chamar /task-results/:id/finish:', err.message));
 }
  
 // ════════════════════════════════════════════════════════════
