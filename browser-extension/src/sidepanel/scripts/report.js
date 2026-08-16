@@ -27,21 +27,91 @@ async function enterReportScreen(testId, testName) {
   showScreen('report');
   $('report-test-name').textContent = testName || '—';
 
-  // Resetar todas as seções para "carregando"
   ['report-effectiveness-list','report-efficiency-list','report-navigability-list',
    'report-structure-list','report-participants-list'].forEach(id => {
     $(id).innerHTML = '<p class="empty-state">Carregando...</p>';
   });
 
+  // Buscar site_id do teste para as métricas de clique
+  try {
+    const testRes = await api('GET', `/tests/${testId}`);
+    reportState.siteId = testRes.data?.site_id || null;
+  } catch(_) {}
+
   await Promise.all([
     loadEffectivenessAndEfficiency(testId),
     loadNavigability(testId),
     loadStructuralMetrics(),
-    loadDemographics(testId), 
-    loadHoverTime(testId),   
+    loadDemographics(testId),
+    loadHoverTime(testId),
     loadScrollDepth(testId),
+    loadClickMetrics(reportState.siteId),
     loadParticipantBreakdown(testId),
+    loadSus(reportState.siteId),
   ]);
+}
+
+async function loadClickMetrics(siteId) {
+  const niList   = $('report-noninteractive-list');
+  const densGrid = $('report-density-grid');
+
+  if (!siteId) {
+    if (niList)   niList.innerHTML   = '<p class="empty-state">site_id não disponível.</p>';
+    if (densGrid) densGrid.innerHTML = '<p class="empty-state">site_id não disponível.</p>';
+    return;
+  }
+
+  try {
+    const [niRes, densRes] = await Promise.all([
+      api('GET', `/metrics/site/${siteId}/non-interactive-clicks`),
+      api('GET', `/metrics/site/${siteId}/click-density`),
+    ]);
+
+    // ── Cliques em Elementos Não-Interativos ──────────────
+    const ni = niRes.data;
+    if (niList) {
+      if (!ni || ni.total_clicks === 0) {
+        niList.innerHTML = '<p class="empty-state">Nenhum clique registrado ainda.</p>';
+      } else {
+        niList.innerHTML = `
+          <div class="report-structure-grid">
+            <div class="report-struct-box">
+              <span class="report-struct-val">${ni.non_interactive_clicks ?? 0}</span>
+              <span class="report-struct-lbl">cliques não-interativos</span>
+            </div>
+            <div class="report-struct-box">
+              <span class="report-struct-val">${ni.total_clicks ?? 0}</span>
+              <span class="report-struct-lbl">total de cliques</span>
+            </div>
+            <div class="report-struct-box">
+              <span class="report-struct-val">${fmtPctReport(ni.non_interactive_pct)}</span>
+              <span class="report-struct-lbl">% não-interativos</span>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // ── Densidade de Cliques por Quadrante ────────────────
+    const grid = densRes.data?.grid;
+    if (densGrid) {
+      if (!grid) {
+        densGrid.innerHTML = '<p class="empty-state">Nenhum dado de clique registrado ainda.</p>';
+      } else {
+        const max = Math.max(...grid.flat(), 1);
+        densGrid.innerHTML = grid.map(row =>
+          `<div class="density-row">${row.map(val => {
+            const pct = Math.round((val / max) * 100);
+            return `<div class="density-cell" style="--pct:${pct}%" title="${val} cliques">${val > 0 ? val : ''}</div>`;
+          }).join('')}</div>`
+        ).join('');
+      }
+    }
+
+  } catch (err) {
+    if (niList)   niList.innerHTML   = errBoxReport(err.message);
+    if (densGrid) densGrid.innerHTML = errBoxReport(err.message);
+  }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -116,23 +186,41 @@ function renderEfficiency(eff) {
 // ════════════════════════════════════════════════════════════
 async function loadNavigability(testId) {
   try {
-    const [lostRes, backRes, depthRes] = await Promise.all([
+    // Buscar site_id para as métricas de clique
+    const siteId = reportState.siteId;
+
+    const requests = [
       api('GET', `/metrics/test/${testId}/lostness`),
       api('GET', `/metrics/test/${testId}/backtrack`),
       api('GET', `/metrics/test/${testId}/page-depth`),
-    ]);
+      api('GET', `/metrics/test/${testId}/scroll-depth`),
+    ];
+    requests.push(api('GET', `/metrics/test/${testId}/non-interactive-clicks`));
+
+    const results = await Promise.all(requests);
+    const [lostRes, backRes, depthRes, scrollRes, niRes] = results;
 
     const lostness  = lostRes.data  || [];
     const backtrack  = backRes.data  || [];
     const depth      = depthRes.data || [];
+    const scrollData = scrollRes.data || [];
+    const ni         = niRes?.data;
 
-    const backByTask = {};   backtrack.forEach(t => { backByTask[t.task_id] = t; });
-    const lostByTask = {};   lostness.forEach(t => { lostByTask[t.task_id] = t; });
+    const backByTask   = {}; backtrack.forEach(t => { backByTask[t.task_id]   = t; });
+    const lostByTask   = {}; lostness.forEach(t  => { lostByTask[t.task_id]   = t; });
+    const scrollByTask = {}; scrollData.forEach(t => { scrollByTask[t.task_id] = t; });
+
+    const niData   = niRes?.data || [];
+    const niByTask = {};
+    niData.forEach(t => { niByTask[t.task_id] = t; });
 
     const list = $('report-navigability-list');
     list.innerHTML = '';
 
-    if (!depth.length) { list.innerHTML = '<p class="empty-state">Nenhum resultado registrado ainda.</p>'; return; }
+    if (!depth.length) {
+      list.innerHTML = '<p class="empty-state">Nenhum resultado registrado ainda.</p>';
+      return;
+    }
 
     let hasNotApplicable = false;
 
@@ -140,7 +228,6 @@ async function loadNavigability(testId) {
       const ls = lostByTask[task.task_id];
       const bt = backByTask[task.task_id];
 
-      // Lostness: distinguir "não aplicável" de "sem dados"
       let lostnessVal = '—';
       if (ls && !ls.not_applicable && ls.avg_lostness_score != null) {
         lostnessVal = ls.avg_lostness_score;
@@ -149,18 +236,28 @@ async function loadNavigability(testId) {
         hasNotApplicable = true;
       }
 
+      const sd = scrollByTask[task.task_id];
+      const scrollVal = sd?.avg_scroll_depth_pct != null
+        ? `${sd.avg_scroll_depth_pct}%`
+        : '—';
+
       list.appendChild(metricCardReport(i, task.description, [
-        { val: task.avg_page_depth ?? '—', lbl: 'páginas visitadas' },
-        { val: fmtPctReport(task.pct_within_3_pages), lbl: '≤3 páginas' },
-        { val: lostnessVal, lbl: 'lostness' },
+        { val: task.avg_page_depth ?? '—',                       lbl: 'páginas visitadas' },
+        { val: fmtPctReport(task.pct_within_3_pages),            lbl: '≤3 páginas' },
+        { val: lostnessVal,                                      lbl: 'lostness' },
         { val: bt ? fmtPctReport(bt.avg_backtrack_rate_pct) : '—', lbl: 'retrocesso' },
+        { val: niByTask[task.task_id]?.avg_non_interactive_pct != null
+          ? fmtPctReport(niByTask[task.task_id].avg_non_interactive_pct)
+          : '—',
+        lbl: 'cliques não-interativos' },
+        { val: scrollVal,                                        lbl: 'scroll médio' },
       ]));
     });
 
     if (hasNotApplicable) {
       const note = document.createElement('p');
       note.className = 'report-note';
-      note.innerHTML = '<strong>N/A</strong> = Lostness não aplicável a tarefas de página única (defina "Páginas no caminho ótimo" maior que 1 ao criar a tarefa, se ela envolve navegar entre páginas).';
+      note.textContent = '* N/A — Lostness não aplicável para tarefas de página única.';
       list.appendChild(note);
     }
 
@@ -304,6 +401,69 @@ async function loadParticipantBreakdown(testId) {
     $('report-participants-list').innerHTML = errBoxReport(err.message);
   }
 }
+
+  // SUS (System Usability Scale) — média das respostas por pergunta
+  async function loadSus(siteId) {
+    const container = $('report-sus-container');
+    if (!container) return;
+    if (!siteId) {
+      container.innerHTML = '<p class="empty-state">site_id não disponível.</p>';
+      return;
+    }
+
+    try {
+      const res  = await api('GET', `/metrics/site/${siteId}/sus-questions`);
+      const data = res.data;
+
+      if (!data) {
+        container.innerHTML = '<p class="empty-state">Nenhuma resposta SUS registrada ainda.</p>';
+        return;
+      }
+
+      const scoreColor = data.avg_score >= 80.3 ? 'var(--teal)' :
+                        data.avg_score >= 68    ? 'var(--primary)' :
+                        data.avg_score >= 51    ? 'var(--amber)' : 'var(--danger)';
+
+      container.innerHTML = `
+        <div class="sus-report-header">
+          <div class="sus-score-box">
+            <span class="sus-score-val" style="color:${scoreColor}">${data.avg_score}</span>
+            <span class="sus-score-lbl">score médio</span>
+          </div>
+          <div class="sus-score-box">
+            <span class="sus-score-val" style="color:${scoreColor}">${data.classification}</span>
+            <span class="sus-score-lbl">classificação</span>
+          </div>
+          <div class="sus-score-box">
+            <span class="sus-score-val">${data.total_responses}</span>
+            <span class="sus-score-lbl">respostas</span>
+          </div>
+        </div>
+        <div class="sus-questions-report">
+          ${data.questions.map((q, i) => {
+            const avg = parseFloat(q.avg);
+            const pct = ((avg - 1) / 4) * 100; // escala 1-5 → 0-100%
+            return `
+              <div class="sus-q-row">
+                <span class="sus-q-num">${i + 1}</span>
+                <span class="sus-q-text">${escHtmlReport(q.text)}</span>
+                <div class="sus-q-bar-track">
+                  <div class="sus-q-bar-fill" style="width:${pct}%"></div>
+                </div>
+                <span class="sus-q-avg">${avg.toFixed(1)}</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+        <p class="report-note" style="margin-top:8px">
+          Escala de 1 (discordo totalmente) a 5 (concordo totalmente) · 
+          Perguntas pares são negativas (score mais baixo = melhor)
+        </p>
+      `;
+    } catch (err) {
+      container.innerHTML = errBoxReport(err.message);
+    }
+  }
 
 // ── Helpers de renderização ─────────────────────────────────────
 function metricCardReport(index, description, metrics) {

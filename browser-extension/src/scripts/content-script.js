@@ -16,8 +16,8 @@ function sendEvent(type, e) {
       element_id: target.id || null,
       class:      target.className || null,
       url:        window.location.href,
-      x:          e.clientX || null,
-      y:          e.clientY || null,
+      x:          e.pageX || null,   // ← era clientX
+      y:          e.pageY || null,   // ← era clientY
       timestamp:  new Date().toISOString(),
     },
   });

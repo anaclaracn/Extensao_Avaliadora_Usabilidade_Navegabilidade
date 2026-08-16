@@ -20,9 +20,9 @@ router.get('/test/:testId/page-depth', MetricsController.pageDepth);
 router.get('/test/:testId/participant-breakdown', MetricsController.participantBreakdown);
 router.get('/test/:testId/scroll-depth', MetricsController.scrollDepth);
 router.get('/test/:testId/hover-time', MetricsController.hoverTime);
+router.get('/test/:testId/non-interactive-clicks', MetricsController.nonInteractiveClicks);
 
-// Estas duas usam o site inteiro (cruzam eventos de todas as sessões do site)
-router.get('/site/:siteId/non-interactive-clicks', MetricsController.nonInteractiveClicks);
+// ── O site inteiro (cruzam eventos de todas as sessões do site) ──
 router.get('/site/:siteId/click-density',          MetricsController.clickDensity);
 
 // ── Estrutura do site (a partir de um snapshot de varredura) ──
@@ -30,6 +30,9 @@ router.get('/snapshot/:snapshotId/interactive-density', MetricsController.intera
 router.get('/snapshot/:snapshotId/link-composition',    MetricsController.linkComposition);
 router.get('/snapshot/:snapshotId/color-contrast',       MetricsController.colorContrast);
 router.get('/snapshot/:snapshotId/alt-coverage',         MetricsController.altCoverage);
+
+// ── SUS (System Usability Scale) ───────────────────────────────
+router.get('/site/:siteId/sus-questions', MetricsController.susQuestionAverages);
 
 // ── Relatórios consolidados ────────────────────────────────────
 router.get('/test/:testId/full-report',          MetricsController.fullTestReport);

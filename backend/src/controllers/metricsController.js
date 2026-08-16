@@ -67,10 +67,11 @@ class MetricsController {
 
   static async nonInteractiveClicks(req, res) {
     try {
-      const tolerance = parseInt(req.query.tolerance_px) || 15;
-      const data = await MetricsService.nonInteractiveClicks(req.params.siteId, tolerance);
+      const data = await MetricsService.nonInteractiveClicks(req.params.testId);
       res.json({ success: true, data });
-    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+    } catch (e) {
+      res.status(500).json({ success: false, error: e.message });
+    }
   }
 
   static async clickDensity(req, res) {
@@ -128,6 +129,16 @@ class MetricsController {
       const data = await MetricsService.altTextCoverage(req.params.snapshotId);
       res.json({ success: true, data });
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+  }
+
+  static async susQuestionAverages(req, res) {
+    try {
+      const data = await MetricsService.susQuestionAverages(req.params.siteId);
+      if (!data) return res.json({ success: true, data: null });
+      res.json({ success: true, data });
+    } catch (e) {
+      res.status(500).json({ success: false, error: e.message });
+    }
   }
 
   // ── Relatórios consolidados ──────────────────────────────────

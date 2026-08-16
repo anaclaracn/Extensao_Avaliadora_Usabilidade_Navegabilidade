@@ -475,56 +475,39 @@ class MetricsService {
    *
    * Tolerância de proximidade: 15px (ajustável)
    */
-  static async nonInteractiveClicks(siteId, tolerancePx = 15) {
-    // Pegar o snapshot mais recente do site para ter o inventário de elementos
-    const snapRes = await db.query(
-      `SELECT id FROM site_snapshots WHERE site_id = $1 ORDER BY scanned_at DESC LIMIT 1`,
-      [siteId]
+  static async nonInteractiveClicks(testId) {
+    const result = await db.query(
+      `SELECT
+        t.id   AS task_id,
+        t.description,
+        COUNT(DISTINCT tr.id) AS total_attempts,
+        ROUND(AVG(per_attempt.ni_pct), 2) AS avg_non_interactive_pct
+      FROM tasks t
+      JOIN task_results tr ON tr.task_id = t.id AND tr.status = 'completed'
+      JOIN LATERAL (
+        SELECT
+          COUNT(*) AS total_clicks,
+          SUM(CASE WHEN LOWER(e.tag) NOT IN
+            ('a','button','input','select','textarea','label',
+              'summary','option','datalist')
+          THEN 1 ELSE 0 END) AS ni_clicks,
+          ROUND(100.0 * SUM(CASE WHEN LOWER(e.tag) NOT IN
+            ('a','button','input','select','textarea','label',
+              'summary','option','datalist')
+          THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 2) AS ni_pct
+        FROM events e
+        WHERE e.session_id = tr.session_id
+          AND e.type = 'click'
+          AND e.timestamp BETWEEN tr.started_at AND tr.finished_at
+          AND e.tag IS NOT NULL
+      ) per_attempt ON true
+      WHERE t.test_id = $1
+        AND per_attempt.total_clicks > 0
+      GROUP BY t.id, t.description
+      ORDER BY t.order_index ASC NULLS LAST, t.id ASC`,
+      [testId]
     );
-    if (!snapRes.rows.length) {
-      return { error: 'Nenhuma varredura encontrada para este site. Execute uma varredura primeiro.' };
-    }
-    const snapshotId = snapRes.rows[0].id;
-
-    // Pegar todos os cliques registrados nas sessões deste site
-    const clicksRes = await db.query(
-      `SELECT e.id, e.x, e.y
-       FROM events e
-       JOIN sessions s ON s.id = e.session_id
-       WHERE s.site_id = $1 AND e.type = 'click' AND e.x IS NOT NULL AND e.y IS NOT NULL`,
-      [siteId]
-    );
-
-    // Pegar elementos interativos do snapshot (links e botões)
-    const elementsRes = await db.query(
-      `SELECT x, y, type FROM site_elements
-       WHERE snapshot_id = $1
-         AND type IN ('link', 'button')
-         AND x IS NOT NULL AND y IS NOT NULL`,
-      [snapshotId]
-    );
-
-    let onInteractive = 0;
-    let onNonInteractive = 0;
-
-    for (const click of clicksRes.rows) {
-      const matchedInteractive = elementsRes.rows.some(el =>
-        Math.abs(el.x - click.x) <= tolerancePx &&
-        Math.abs(el.y - click.y) <= tolerancePx
-      );
-      if (matchedInteractive) onInteractive++;
-      else onNonInteractive++;
-    }
-
-    const total = onInteractive + onNonInteractive;
-    return {
-      snapshot_id: snapshotId,
-      total_clicks_analyzed: total,
-      clicks_on_interactive: onInteractive,
-      clicks_on_non_interactive: onNonInteractive,
-      pct_non_interactive: total > 0 ? Math.round((onNonInteractive / total) * 10000) / 100 : null,
-      tolerance_px: tolerancePx,
-    };
+    return result.rows;
   }
 
   /**
@@ -766,6 +749,56 @@ class MetricsService {
       [snapshotId]
     );
     return result.rows[0];
+  }
+
+  static async susQuestionAverages(siteId) {
+    const r = await db.query(
+      `SELECT
+        COUNT(*)                        AS total_responses,
+        ROUND(AVG(sus_score)::numeric, 1) AS avg_score,
+        ROUND(AVG(q1)::numeric,  2) AS avg_q1,
+        ROUND(AVG(q2)::numeric,  2) AS avg_q2,
+        ROUND(AVG(q3)::numeric,  2) AS avg_q3,
+        ROUND(AVG(q4)::numeric,  2) AS avg_q4,
+        ROUND(AVG(q5)::numeric,  2) AS avg_q5,
+        ROUND(AVG(q6)::numeric,  2) AS avg_q6,
+        ROUND(AVG(q7)::numeric,  2) AS avg_q7,
+        ROUND(AVG(q8)::numeric,  2) AS avg_q8,
+        ROUND(AVG(q9)::numeric,  2) AS avg_q9,
+        ROUND(AVG(q10)::numeric, 2) AS avg_q10
+      FROM sus_responses
+      WHERE site_id = $1`,
+      [siteId]
+    );
+    const row = r.rows[0];
+    if (!row || parseInt(row.total_responses) === 0) return null;
+
+    const avg = parseFloat(row.avg_score) || 0;
+    const classification =
+      avg >= 80.3 ? 'Excelente' :
+      avg >= 68   ? 'Bom'       :
+      avg >= 51   ? 'OK'        :
+      avg > 0     ? 'Pobre'     : 'Sem dados';
+
+    const questions = [
+      { id: 'q1',  avg: row.avg_q1,  text: 'Gostaria de usar este site com frequência' },
+      { id: 'q2',  avg: row.avg_q2,  text: 'Site mais complexo do que necessário' },
+      { id: 'q3',  avg: row.avg_q3,  text: 'Site fácil de usar' },
+      { id: 'q4',  avg: row.avg_q4,  text: 'Precisaria de ajuda para usar o site' },
+      { id: 'q5',  avg: row.avg_q5,  text: 'Funções bem integradas' },
+      { id: 'q6',  avg: row.avg_q6,  text: 'Muita inconsistência no site' },
+      { id: 'q7',  avg: row.avg_q7,  text: 'Maioria aprenderia rapidamente' },
+      { id: 'q8',  avg: row.avg_q8,  text: 'Site muito difícil de usar' },
+      { id: 'q9',  avg: row.avg_q9,  text: 'Me senti confiante usando o site' },
+      { id: 'q10', avg: row.avg_q10, text: 'Precisei aprender muitas coisas antes' },
+    ];
+
+    return {
+      total_responses: parseInt(row.total_responses),
+      avg_score: parseFloat(row.avg_score),
+      classification,
+      questions,
+    };
   }
 
   // ════════════════════════════════════════════════════════════
