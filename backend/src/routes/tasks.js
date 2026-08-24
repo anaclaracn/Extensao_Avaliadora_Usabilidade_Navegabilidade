@@ -11,6 +11,10 @@ router.post('/', validateTask, TaskController.createTask);
 // GET /tasks?test_id= — listar tarefas de um teste
 router.get('/', TaskController.listTasks);
 
+// GET /tasks/:id — update e delete de uma tarefa específica
+router.patch('/:id',  TaskController.updateTask);
+router.delete('/:id', TaskController.deleteTask);
+
 // PATCH /tasks/:id/optimal-params — ajustar parâmetros de caminho ótimo
 router.patch('/:id/optimal-params', TaskController.updateOptimalParams);
 

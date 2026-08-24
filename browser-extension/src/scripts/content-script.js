@@ -88,8 +88,6 @@ document.addEventListener('mouseout', (e) => {
   const el = e.target.closest(HOVER_SELECTOR);
   if (!el || !hoverMap.has(el)) return;
 
-  // Só registra o hover se o mouse saiu do elemento (não apenas se moveu
-  // para um filho). relatedTarget é para onde o mouse foi.
   const relatedTarget = e.relatedTarget;
   if (relatedTarget && el.contains(relatedTarget)) return;
 
@@ -98,18 +96,22 @@ document.addEventListener('mouseout', (e) => {
 
   if (duration < HOVER_MIN_MS) return;
 
-  chrome.runtime.sendMessage({
-    action: 'sendEventToBackend',
-    event: {
-      type:       'hover',
-      tag:        el.tagName?.toLowerCase() || null,
-      text:       String(duration),   // duração em ms, campo reutilizado
-      element_id: el.id || null,
-      class:      typeof el.className === 'string' ? el.className : null,
-      url:        window.location.href,
-      x:          null,
-      y:          null,
-      timestamp:  new Date().toISOString(),
-    },
+  // Só envia hover se houver uma tarefa ativa
+  chrome.runtime.sendMessage({ action: 'getEventStats' }, (res) => {
+    if (!res?.stats?.activeTask) return; // sem tarefa ativa, descarta
+    chrome.runtime.sendMessage({
+      action: 'sendEventToBackend',
+      event: {
+        type:       'hover',
+        tag:        el.tagName?.toLowerCase() || null,
+        text:       String(duration),
+        element_id: el.id || null,
+        class:      typeof el.className === 'string' ? el.className : null,
+        url:        window.location.href,
+        x:          null,
+        y:          null,
+        timestamp:  new Date().toISOString(),
+      },
+    });
   });
 }, true);

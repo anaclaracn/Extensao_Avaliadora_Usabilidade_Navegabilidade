@@ -36,6 +36,27 @@ class TaskService {
     return result.rows[0];
   }
 
+  static async updateTask(id, { description, min_clicks, optimal_path_length }) {
+    const result = await db.query(
+      `UPDATE tasks
+      SET description         = COALESCE($1, description),
+          min_clicks          = COALESCE($2, min_clicks),
+          optimal_path_length = COALESCE($3, optimal_path_length)
+      WHERE id = $4
+      RETURNING *`,
+      [description || null, min_clicks || null, optimal_path_length || null, id]
+    );
+    return result.rows[0] || null;
+  }
+
+  static async deleteTask(id) {
+    const result = await db.query(
+      `DELETE FROM tasks WHERE id = $1 RETURNING id`,
+      [id]
+    );
+    return result.rows[0] || null;
+  }
+
   static async listByTest(testId) {
     const result = await db.query(
       'SELECT * FROM tasks WHERE test_id = $1 ORDER BY order_index ASC;',

@@ -21,6 +21,14 @@ class TestService {
     return result.rows[0];
   }
 
+  static async updateTest(id, name) {
+    const result = await db.query(
+      `UPDATE tests SET name = $1 WHERE id = $2 RETURNING *`,
+      [name, id]
+    );
+    return result.rows[0] || null;
+  }
+
   /**
    * Listar testes por site_id
    * @param {number|null} siteId

@@ -36,7 +36,11 @@ async function enterReportScreen(testId, testName) {
   try {
     const testRes = await api('GET', `/tests/${testId}`);
     reportState.siteId = testRes.data?.site_id || null;
-  } catch(_) {}
+    console.log('testRes.data:', testRes.data);        // ← adicionar
+    console.log('siteId setado:', reportState.siteId); // ← adicionar
+  } catch(err) {
+    console.error('Erro ao buscar site_id:', err);     // ← adicionar
+  }
 
   await Promise.all([
     loadEffectivenessAndEfficiency(testId),
@@ -320,12 +324,22 @@ async function loadStructuralMetrics() {
       failBox.className = 'report-contrast-failures';
       failBox.innerHTML = `
         <p class="report-note" style="margin-bottom:6px"><strong>Elementos com contraste insuficiente:</strong></p>
-        ${d.contrast.failures.slice(0, 5).map(f => `
-          <div class="report-fail-item">
-            <span>${escHtmlReport(f.text || f.type)}</span>
-            <span class="report-fail-ratio">${f.contrast_ratio}:1</span>
-          </div>
-        `).join('')}
+        ${d.contrast.failures.slice(0, 5).map(f => {
+          const identifier = f.element_id
+            ? `#${f.element_id}`
+            : f.class
+              ? `.${f.class}`
+              : f.type;
+          const label = f.text
+            ? `${identifier} — "${f.text.slice(0, 30)}"`
+            : identifier;
+          return `
+            <div class="report-fail-item">
+              <span>${escHtmlReport(label)}</span>
+              <span class="report-fail-ratio">${f.contrast_ratio}:1</span>
+            </div>
+          `;
+        }).join('')}
       `;
       list.appendChild(failBox);
     }

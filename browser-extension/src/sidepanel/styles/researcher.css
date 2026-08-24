@@ -3,3 +3,19 @@
 #reg-form-body { animation:slideDown .25s ease; }
 .btn-icon { padding:8px 12px; background:var(--accent); color:white; border:none; border-radius:7px; font-size:14px; cursor:pointer; }
 .btn-icon:hover { opacity:.85; }
+
+.task-item {
+  display: flex; align-items: center; gap: 8px;
+}
+.task-item-actions {
+  display: flex; gap: 4px; margin-left: auto; flex-shrink: 0;
+}
+.btn-task-edit,
+.btn-task-delete {
+  background: none; border: none; cursor: pointer;
+  font-size: 13px; padding: 2px 4px; border-radius: 4px;
+  opacity: 0.6; transition: opacity .15s;
+}
+.btn-task-edit:hover  { opacity: 1; }
+.btn-task-delete:hover { opacity: 1; }
+.task-text { flex: 1; display: flex; align-items: center; gap: 4px; }

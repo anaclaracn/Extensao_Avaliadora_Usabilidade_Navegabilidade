@@ -14,4 +14,6 @@ router.get('/', TestController.listTests);
 // GET /tests/:id — buscar por ID
 router.get('/:id', TestController.getTest);
 
+router.patch('/:id', TestController.updateTest);
+
 module.exports = router;

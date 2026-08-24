@@ -64,9 +64,10 @@ async function loadAdminTests(){
       // Botão "Editar tarefas" — comportamento original mantido
       el.querySelector('.btn-start-task').addEventListener('click',(e)=>{
         e.stopPropagation();
-        S.activeTestId=parseInt(e.target.dataset.id);
-        S.activeTestName=e.target.dataset.name;
-        $('tasks-test-badge').textContent=S.activeTestName;
+        const btn = e.currentTarget;  // ← sempre o botão, não o filho
+        S.activeTestId   = parseInt(btn.dataset.id);
+        S.activeTestName = btn.dataset.name;
+        $('tasks-test-badge').textContent = S.activeTestName;
         show('tasks-section');
         loadAdminTasks();
       });
@@ -74,8 +75,9 @@ async function loadAdminTests(){
       // Botão "Relatório" — novo, abre a tela de métricas do teste
       el.querySelector('.btn-view-report').addEventListener('click',(e)=>{
         e.stopPropagation();
-        const testId   = e.target.dataset.id;
-        const testName = e.target.dataset.name;
+        const btn    = e.currentTarget;  // ← mesma correção
+        const testId   = btn.dataset.id;
+        const testName = btn.dataset.name;
         enterReportScreen(testId, testName);
       });
 
@@ -84,15 +86,90 @@ async function loadAdminTests(){
   } catch(err){ list.innerHTML=`<p class="empty-state" style="color:#dc2626">Erro: ${err.message}</p>`; }
 }
 
-async function loadAdminTasks(){
-  if(!S.activeTestId) return;
-  try{ const res=await api('GET',`/tasks?test_id=${S.activeTestId}`); S.tasks=res.data||[]; renderAdminTasks(); }catch(_){}
+async function loadAdminTasks() {
+  if (!S.activeTestId) return;
+  try {
+    const res = await api('GET', `/tasks?test_id=${S.activeTestId}`);
+    S.tasks = res.data || [];
+    // Preencher o campo de renomear com o nome atual
+    $('test-rename-input').value = S.activeTestName || '';
+    renderAdminTasks();
+  } catch(_) {}
 }
 
-function renderAdminTasks(){
-  const list=$('tasks-list'); list.innerHTML='';
-  if(!S.tasks.length){ list.innerHTML='<p class="empty-state">Nenhuma tarefa ainda.</p>'; return; }
-  S.tasks.forEach((t,i)=>{ const el=document.createElement('div'); el.className='task-item'; el.innerHTML=`<span class="task-num">${i+1}</span><span class="task-text">${t.description}</span>`; list.appendChild(el); });
+function renderAdminTasks() {
+  const list = $('tasks-list');
+  list.innerHTML = '';
+  if (!S.tasks.length) {
+    list.innerHTML = '<p class="empty-state">Nenhuma tarefa ainda.</p>';
+    return;
+  }
+  S.tasks.forEach((t, i) => {
+    const el = document.createElement('div');
+    el.className = 'task-item';
+    el.dataset.id = t.id;
+    el.innerHTML = `
+      <span class="task-num">${i + 1}</span>
+      <span class="task-text" id="task-text-${t.id}">${t.description}</span>
+      <div class="task-item-actions">
+        <button class="btn-task-edit" data-id="${t.id}" title="Editar">✏️</button>
+        <button class="btn-task-delete" data-id="${t.id}" title="Excluir">🗑️</button>
+      </div>
+    `;
+
+    el.querySelector('.btn-task-edit').addEventListener('click', () => startEditTask(t));
+    el.querySelector('.btn-task-delete').addEventListener('click', () => deleteTask(t.id));
+
+    list.appendChild(el);
+  });
+}
+
+function startEditTask(task) {
+  // Preencher o modal com os valores atuais
+  $('edit-task-description').value  = task.description || '';
+  $('edit-task-min-clicks').value   = task.min_clicks || '';
+  $('edit-task-optimal-path').value = task.optimal_path_length || '';
+  $('edit-task-id').value           = task.id;
+  hide('edit-task-feedback');
+  show('edit-task-modal-overlay');
+  $('edit-task-description').focus();
+}
+
+async function saveEditTask(taskId) {
+  const input = $(`task-edit-input-${taskId}`);
+  if (!input) return;
+  const newDesc = input.value.trim();
+  if (!newDesc) return;
+
+  try {
+    await api('PATCH', `/tasks/${taskId}`, { description: newDesc });
+    const task = S.tasks.find(t => t.id === taskId);
+    if (task) task.description = newDesc;
+    renderAdminTasks();
+    showFeedback('task-feedback', '✓ Tarefa atualizada!');
+  } catch (err) {
+    showFeedback('task-feedback', `Erro: ${err.message}`, true);
+  }
+}
+
+async function deleteTask(taskId) {
+  const confirmed = await showConfirmModal({
+    icon: '🗑️',
+    title: 'Excluir tarefa?',
+    message: 'Esta ação não pode ser desfeita.',
+    confirmText: 'Excluir',
+    cancelText: 'Cancelar',
+  });
+  if (!confirmed) return;
+
+  try {
+    await api('DELETE', `/tasks/${taskId}`);
+    S.tasks = S.tasks.filter(t => t.id !== taskId);
+    renderAdminTasks();
+    showFeedback('task-feedback', '✓ Tarefa excluída.');
+  } catch (err) {
+    showFeedback('task-feedback', `Erro: ${err.message}`, true);
+  }
 }
 
 function bindAdmin(){
@@ -133,6 +210,61 @@ function bindAdmin(){
     } catch(err) {
       showFeedback('task-feedback', `Erro: ${err.message}`, true);
     }
+  });
+
+  $('btn-rename-test').addEventListener('click', async () => {
+    const newName = $('test-rename-input').value.trim();
+    if (!newName) return showFeedback('rename-feedback', 'Digite um nome.', true);
+    if (!S.activeTestId) return;
+    try {
+      await api('PATCH', `/tests/${S.activeTestId}`, { name: newName });
+      S.activeTestName = newName;
+      $('tasks-test-badge').textContent = newName;
+      showFeedback('rename-feedback', '✓ Teste renomeado!');
+      loadAdminTests(); // atualizar a lista
+    } catch (err) {
+      showFeedback('rename-feedback', `Erro: ${err.message}`, true);
+    }
+  });
+
+  $('btn-edit-task-cancel').addEventListener('click', () => hide('edit-task-modal-overlay'));
+
+  $('btn-edit-task-save').addEventListener('click', async () => {
+    const taskId  = parseInt($('edit-task-id').value);
+    const desc    = $('edit-task-description').value.trim();
+    const minClk  = parseInt($('edit-task-min-clicks').value)   || null;
+    const optPath = parseInt($('edit-task-optimal-path').value) || null;
+
+    if (!desc) return showFeedback('edit-task-feedback', 'A descrição é obrigatória.', true);
+
+    const btn = $('btn-edit-task-save');
+    btn.disabled = true; btn.textContent = 'Salvando...';
+
+    try {
+      await api('PATCH', `/tasks/${taskId}`, {
+        description:         desc,
+        min_clicks:          minClk,
+        optimal_path_length: optPath,
+      });
+      const task = S.tasks.find(t => t.id === taskId);
+      if (task) {
+        task.description         = desc;
+        task.min_clicks          = minClk;
+        task.optimal_path_length = optPath;
+      }
+      hide('edit-task-modal-overlay');
+      renderAdminTasks();
+      showFeedback('task-feedback', '✓ Tarefa atualizada!');
+    } catch (err) {
+      showFeedback('edit-task-feedback', `Erro: ${err.message}`, true);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Salvar';
+    }
+  });
+
+  // Fechar ao clicar fora do modal
+  $('edit-task-modal-overlay').addEventListener('click', (e) => {
+    if (e.target === $('edit-task-modal-overlay')) hide('edit-task-modal-overlay');
   });
 
   $('task-description').addEventListener('keydown',e=>{ if(e.key==='Enter') $('btn-add-task').click(); });

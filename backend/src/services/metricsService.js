@@ -671,7 +671,7 @@ class MetricsService {
    */
   static async colorContrastAudit(snapshotId) {
     const result = await db.query(
-      `SELECT id, type, text, bg_color, text_color
+      `SELECT id, type, text, element_id, "class", bg_color, text_color
        FROM site_elements
        WHERE snapshot_id = $1
          AND type IN ('link', 'button', 'heading')
@@ -714,8 +714,10 @@ class MetricsService {
       else {
         nonCompliant++;
         failures.push({
-          element_id: el.id, type: el.type,
-          text: (el.text || '').slice(0, 60),
+          type:           el.type,
+          text:           (el.text || '').slice(0, 60),
+          element_id:     el.element_id || null,
+          class:          el.class ? String(el.class).split(' ')[0] : null, // primeira classe só
           contrast_ratio: Math.round(ratio * 100) / 100,
         });
       }

@@ -40,6 +40,29 @@ class TaskController {
     }
   }
 
+  static async updateTask(req, res) {
+    try {
+      const { description, min_clicks, optimal_path_length } = req.body;
+      const task = await TaskService.updateTask(req.params.id, {
+        description, min_clicks, optimal_path_length,
+      });
+      if (!task) return res.status(404).json({ success: false, error: 'Tarefa não encontrada' });
+      res.json({ success: true, data: task });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  static async deleteTask(req, res) {
+    try {
+      const task = await TaskService.deleteTask(req.params.id);
+      if (!task) return res.status(404).json({ success: false, error: 'Tarefa não encontrada' });
+      res.json({ success: true, message: 'Tarefa excluída' });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
   /**
    * GET /tasks?test_id=
    */

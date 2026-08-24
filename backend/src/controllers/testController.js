@@ -37,6 +37,18 @@ class TestController {
     }
   }
 
+  static async updateTest(req, res) {
+    try {
+      const { name } = req.body;
+      if (!name) return res.status(400).json({ success: false, error: 'Nome é obrigatório' });
+      const test = await TestService.updateTest(req.params.id, name);
+      if (!test) return res.status(404).json({ success: false, error: 'Teste não encontrado' });
+      res.json({ success: true, data: test });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
   /**
    * GET /tests
    * Lista testes. Filtros aceitos (em ordem de prioridade):
