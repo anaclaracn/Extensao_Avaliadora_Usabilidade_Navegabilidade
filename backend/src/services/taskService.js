@@ -16,8 +16,8 @@ class TaskService {
    * }} data
    */
   static async createTask(data) {
-    const { test_id, description, order_index, min_clicks, optimal_path_length } = data;
-
+    const { test_id, description, order_index, min_clicks, optimal_path_length, optimal_time_seconds } = data;
+    
     let idx = order_index;
     if (idx === undefined || idx === null) {
       const countResult = await db.query(
@@ -28,20 +28,21 @@ class TaskService {
     }
 
     const result = await db.query(
-      `INSERT INTO tasks (test_id, description, order_index, min_clicks, optimal_path_length)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO tasks (test_id, description, order_index, min_clicks, optimal_path_length, optimal_time_seconds)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *;`,
-      [test_id, description, idx, min_clicks || null, optimal_path_length || null]
+      [test_id, description, idx, min_clicks || null, optimal_path_length || null, optimal_time_seconds || null]
     );
     return result.rows[0];
   }
 
-  static async updateTask(id, { description, min_clicks, optimal_path_length }) {
+  static async updateTask(id, { description, min_clicks, optimal_path_length, optimal_time_seconds }) {
     const result = await db.query(
       `UPDATE tasks
       SET description         = COALESCE($1, description),
           min_clicks          = COALESCE($2, min_clicks),
           optimal_path_length = COALESCE($3, optimal_path_length)
+          optimal_time_seconds = COALESCE($4, optimal_time_seconds)
       WHERE id = $4
       RETURNING *`,
       [description || null, min_clicks || null, optimal_path_length || null, id]

@@ -130,6 +130,7 @@ function startEditTask(task) {
   $('edit-task-min-clicks').value   = task.min_clicks || '';
   $('edit-task-optimal-path').value = task.optimal_path_length || '';
   $('edit-task-id').value           = task.id;
+  $('edit-task-optimal-time').value = task.optimal_time_seconds || '';
   hide('edit-task-feedback');
   show('edit-task-modal-overlay');
   $('edit-task-description').focus();
@@ -193,6 +194,7 @@ function bindAdmin(){
 
     const minClicks   = parseInt($('task-min-clicks').value)   || null;
     const optimalPath = parseInt($('task-optimal-path').value) || null;
+    const optimalTime = parseInt($('task-optimal-time').value) || null;
 
     try {
       const res = await api('POST', '/tasks', {
@@ -200,11 +202,13 @@ function bindAdmin(){
         description: desc,
         min_clicks:           minClicks,
         optimal_path_length:  optimalPath,
+        optimal_time_seconds: optimalTime,
       });
       S.tasks.push(res.data);
       $('task-description').value = '';
       $('task-min-clicks').value = '';
       $('task-optimal-path').value = '';
+      $('task-optimal-time').value = '';
       renderAdminTasks();
       showFeedback('task-feedback', '✓ Tarefa adicionada!');
     } catch(err) {
@@ -234,6 +238,7 @@ function bindAdmin(){
     const desc    = $('edit-task-description').value.trim();
     const minClk  = parseInt($('edit-task-min-clicks').value)   || null;
     const optPath = parseInt($('edit-task-optimal-path').value) || null;
+    const optimalTime = parseInt($('edit-task-optimal-time').value) || null;
 
     if (!desc) return showFeedback('edit-task-feedback', 'A descrição é obrigatória.', true);
 
@@ -245,6 +250,7 @@ function bindAdmin(){
         description:         desc,
         min_clicks:          minClk,
         optimal_path_length: optPath,
+        optimal_time_seconds: optimalTime,
       });
       const task = S.tasks.find(t => t.id === taskId);
       if (task) {
